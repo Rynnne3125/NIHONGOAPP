@@ -14,7 +14,6 @@ export default function AdminScreen(props: any) {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-  </View>
     </ScrollView>
   );
 }

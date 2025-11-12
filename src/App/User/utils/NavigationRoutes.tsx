@@ -3,5 +3,5 @@
 export const NavigationRoutes = {
   LOGIN: 'login',
   REGISTER: 'register',
-  HOME: 'home/{user_email}'
+  HOME: 'home/{userEmail}'
 } as const;

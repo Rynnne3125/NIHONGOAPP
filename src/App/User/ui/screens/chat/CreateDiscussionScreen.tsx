@@ -1,25 +1,43 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  SafeAreaView,
+  ScrollView,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Alert,
+} from 'react-native';
+import firestore, {
   collection,
   addDoc,
-  Timestamp
-} from 'firebase/firestore';
-import { firestore } from '../config/firebase';
-import { User, Discussion } from '../types';
-import { UserRepository } from '../repositories/UserRepository';
-import BottomNavigationBar from '../components/BottomNavigationBar';
+  serverTimestamp,
+} from '@react-native-firebase/firestore';
+import { User } from '../../../data/models/User';
+import { Discussion } from '../../../data/models';
+import { UserRepository } from '../../../data/repository/UserRepository';
 
-interface CreateDiscussionScreenProps {
-  userEmail: string;
-  userRepository: UserRepository;
+const db = firestore();
+
+interface CreateDiscussionScreenProps extends NativeStackScreenProps<any, 'create_discussion/{userEmail}'> {
+  userEmail?: string;
+  userRepository?: UserRepository;
 }
 
 const CreateDiscussionScreen: React.FC<CreateDiscussionScreenProps> = ({
-  userEmail,
-  userRepository,
+  navigation,
+  route,
+  userEmail: passedEmail,
+  userRepository: passedRepository,
 }) => {
-  const navigate = useNavigate();
+  const userEmail = route.params?.userEmail || passedEmail || '';
+  const userRepository = passedRepository;
+  
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [tags, setTags] = useState('');
@@ -29,10 +47,10 @@ const CreateDiscussionScreen: React.FC<CreateDiscussionScreenProps> = ({
   // Load current user
   useEffect(() => {
     const loadUser = async () => {
+      if (!userRepository) return;
       try {
         const user = await userRepository.getUserByEmail(userEmail);
         setCurrentUser(user);
-        console.log('Loaded current user:', user?.username);
       } catch (error) {
         console.error('Error loading current user:', error);
       }
@@ -43,180 +61,206 @@ const CreateDiscussionScreen: React.FC<CreateDiscussionScreenProps> = ({
 
   const handleCreateDiscussion = async () => {
     if (!title.trim() || !content.trim()) {
-      alert('Vui lòng nhập đầy đủ tiêu đề và nội dung');
+      Alert.alert('Lỗi', 'Vui lòng nhập đầy đủ tiêu đề và nội dung');
       return;
     }
 
-    if (!currentUser) {
-      alert('Không thể xác định người dùng hiện tại');
+    if (!currentUser || !userRepository) {
+      Alert.alert('Lỗi', 'Không thể xác định người dùng hiện tại');
       return;
     }
 
     setIsLoading(true);
 
     try {
-      // Parse tags
       const tagList = tags
         .split(',')
-        .map(tag => tag.trim())
-        .filter(tag => tag.length > 0);
+        .map((tag) => tag.trim())
+        .filter((tag) => tag.length > 0);
 
-      // Create new discussion
       const newDiscussion: Omit<Discussion, 'id'> = {
-        title,
-        content,
+        title: title.trim(),
+        content: content.trim(),
         authorId: currentUser.id,
         authorName: currentUser.username,
         authorImageUrl: currentUser.imageUrl,
-        commentCount: 0,
-        createdAt: Date.now(),
         tags: tagList,
+        createdAt: Date.now(),
+        commentCount: 0,
       };
 
-      // Save to Firestore
       const docRef = await addDoc(
-        collection(firestore, 'discussions'),
+        collection(db, 'discussions'),
         newDiscussion
       );
 
-      console.log('Discussion created with ID:', docRef.id);
-
-      // Add activity points to user
       const updatedUser = {
         ...currentUser,
         activityPoints: (currentUser.activityPoints || 0) + 5,
       };
       await userRepository.updateUser(updatedUser);
 
-      // Show success message
-      alert('Đã tạo thảo luận mới');
-
-      // Navigate to discussion chat
-      navigate(`/discussion-chat/${docRef.id}/${userEmail}`);
+      Alert.alert('Thành công', 'Thảo luận đã được tạo!', [
+        {
+          text: 'OK',
+          onPress: () => {
+            navigation.navigate('discussion_chat/{discussionId}/{userEmail}', {
+              discussionId: docRef.id,
+              userEmail,
+            });
+          },
+        },
+      ]);
     } catch (error) {
       console.error('Error creating discussion:', error);
-      alert(`Lỗi: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      Alert.alert('Lỗi', `Lỗi tạo thảo luận: ${error instanceof Error ? error.message : 'Unknown'}`);
+    } finally {
       setIsLoading(false);
     }
   };
 
-  const handleNavigate = (route: string) => {
-    navigate(`/${route}/${userEmail}`);
-  };
-
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
-      {/* Top Bar */}
-      <header className="bg-white shadow-sm sticky top-0 z-10">
-        <div className="flex items-center p-4">
-          <button
-            onClick={() => navigate(-1)}
-            className="mr-4 p-2 hover:bg-gray-100 rounded-full transition"
-          >
-            <svg
-              className="w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 19l-7-7 7-7"
-              />
-            </svg>
-          </button>
-          <h1 className="text-xl font-bold">Tạo thảo luận mới</h1>
-        </div>
-      </header>
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Text style={styles.backButton}>← Back</Text>
+        </TouchableOpacity>
+        <Text style={styles.title}>Tạo thảo luận mới</Text>
+        <View style={{ width: 40 }} />
+      </View>
 
-      {/* Content */}
-      <main className="flex-1 overflow-y-auto p-4">
-        <div className="max-w-2xl mx-auto space-y-4">
-          {/* Title Input */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Tiêu đề
-            </label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Nhập tiêu đề"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-            />
-          </div>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.form}
+      >
+        <ScrollView style={styles.scrollContent}>
+          <Text style={styles.label}>Tiêu đề *</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Nhập tiêu đề thảo luận..."
+            value={title}
+            onChangeText={setTitle}
+            maxLength={100}
+            placeholderTextColor="#999"
+          />
+          <Text style={styles.charCount}>{title.length}/100</Text>
 
-          {/* Content Input */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Nội dung
-            </label>
-            <textarea
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="Nhập nội dung"
-              rows={10}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
-            />
-          </div>
+          <Text style={styles.label}>Nội dung *</Text>
+          <TextInput
+            style={[styles.input, styles.textArea]}
+            placeholder="Nhập nội dung thảo luận..."
+            value={content}
+            onChangeText={setContent}
+            multiline
+            numberOfLines={6}
+            maxLength={1000}
+            textAlignVertical="top"
+            placeholderTextColor="#999"
+          />
+          <Text style={styles.charCount}>{content.length}/1000</Text>
 
-          {/* Tags Input */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Tags (phân cách bằng dấu phẩy)
-            </label>
-            <input
-              type="text"
-              value={tags}
-              onChange={(e) => setTags(e.target.value)}
-              placeholder="Ví dụ: học tập, ngữ pháp, kanji"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-            />
-          </div>
+          <Text style={styles.label}>Tags (cách nhau bằng dấu phẩy)</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="ví dụ: Python, Web, React"
+            value={tags}
+            onChangeText={setTags}
+            maxLength={100}
+            placeholderTextColor="#999"
+          />
 
-          {/* Submit Button */}
-          <button
-            onClick={handleCreateDiscussion}
+          <TouchableOpacity
+            style={[styles.button, isLoading && styles.buttonDisabled]}
+            onPress={handleCreateDiscussion}
             disabled={isLoading}
-            className={`w-full py-3 rounded-lg font-medium flex items-center justify-center space-x-2 transition ${
-              isLoading
-                ? 'bg-gray-400 cursor-not-allowed'
-                : 'bg-green-600 hover:bg-green-700 text-white'
-            }`}
           >
             {isLoading ? (
-              <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <ActivityIndicator color="#fff" size="small" />
             ) : (
-              <>
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-                  />
-                </svg>
-                <span>Đăng thảo luận</span>
-              </>
+              <Text style={styles.buttonText}>Tạo thảo luận</Text>
             )}
-          </button>
-        </div>
-      </main>
-
-      {/* Bottom Navigation */}
-      <BottomNavigationBar
-        selectedItem="community"
-        onNavigate={handleNavigate}
-      />
-    </div>
+          </TouchableOpacity>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  backButton: {
+    fontSize: 16,
+    color: '#15803d',
+    fontWeight: '600',
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#000',
+    flex: 1,
+    marginHorizontal: 12,
+  },
+  form: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 16,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#000',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#000',
+  },
+  textArea: {
+    height: 120,
+    textAlignVertical: 'top',
+  },
+  charCount: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 4,
+    marginBottom: 12,
+    textAlign: 'right',
+  },
+  button: {
+    backgroundColor: '#15803d',
+    borderRadius: 8,
+    paddingVertical: 14,
+    marginTop: 24,
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  buttonDisabled: {
+    backgroundColor: '#999',
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+});
 
 export default CreateDiscussionScreen;

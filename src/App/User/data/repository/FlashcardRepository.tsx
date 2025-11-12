@@ -1,33 +1,23 @@
 
-import { 
-  getFirestore, 
+import firestore, { 
   collection, 
   doc, 
   getDoc, 
   getDocs, 
   setDoc, 
   updateDoc,
-  deleteDoc,
   query, 
   where,
   orderBy,
-  increment,
   serverTimestamp,
-  Timestamp
-} from 'firebase/firestore';
+  FieldValue,
+} from '@react-native-firebase/firestore';
 import CryptoJS from 'crypto-js';
 import { 
-  User, 
-  Course, 
-  CourseReview, 
-  Lesson, 
-  Exercise, 
-  Flashcard, 
-  UserProgress,
-  calculateRank 
-} from './types';
+  Flashcard
+} from '../models';
 
-const db = getFirestore();
+const db = firestore();
 export class FlashcardRepository {
   async getFlashcardsByLessonId(lessonId: string): Promise<Flashcard[]> {
     try {
@@ -39,6 +29,16 @@ export class FlashcardRepository {
       return snapshot.docs.map(doc => doc.data() as Flashcard);
     } catch (error) {
       console.error('Error getting flashcards:', error);
+      return [];
+    }
+  }
+
+  async getAllFlashcards(): Promise<Flashcard[]> {
+    try {
+      const snapshot = await getDocs(collection(db, 'flashcards'));
+      return snapshot.docs.map(doc => doc.data() as Flashcard);
+    } catch (error) {
+      console.error('Error getting all flashcards:', error);
       return [];
     }
   }

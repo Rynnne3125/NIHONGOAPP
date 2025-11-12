@@ -1,9 +1,27 @@
 import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  Modal,
+  TextInput,
+  ActivityIndicator,
+  StyleSheet,
+  SafeAreaView,
+  ScrollView,
+} from 'react-native';
+import { FlashcardRepository } from '../../../data/repository';
 
-interface Flashcard {
+type Flashcard = {
+  id?: string;
   term: string;
   definition: string;
-}
+  lessonId?: string;
+  type?: string;
+};
+
+const flashcardRepo = new FlashcardRepository();
 
 const FlashcardScreen: React.FC = () => {
   const [selectedTab, setSelectedTab] = useState(0);
@@ -13,118 +31,131 @@ const FlashcardScreen: React.FC = () => {
     cardCount: number;
   } | null>(null);
 
+  const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const tabs = ['Hiragana', 'Katakana', 'Kanji', 'Từ vựng'];
 
-  const hiraganaCards: Flashcard[] = [
-    { term: 'あ', definition: 'a' },
-    { term: 'い', definition: 'i' },
-    { term: 'う', definition: 'u' },
-    { term: 'え', definition: 'e' },
-    { term: 'お', definition: 'o' },
-  ];
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      setIsLoading(true);
+      try {
+        const data = await flashcardRepo.getAllFlashcards();
+        if (mounted) {
+          setFlashcards(data as Flashcard[]);
+        }
+      } catch (err: any) {
+        console.error(err);
+        if (mounted) setError('Không thể tải thẻ.');
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const cardsForTab = flashcards.filter((c) => {
+    if (selectedTab === 0) return c.type === 'hiragana' || !c.type;
+    if (selectedTab === 1) return c.type === 'katakana';
+    if (selectedTab === 2) return c.type === 'kanji';
+    return c.type === 'vocabulary';
+  });
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-green-600 text-white shadow-md sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-bold">Flashcard Nhật Ngữ</h1>
-              <p className="text-sm opacity-90">Học hiệu quả - Nhớ lâu hơn</p>
-            </div>
-            <button
-              onClick={() => setShowStartDialog(true)}
-              className="bg-white text-green-600 px-4 py-2 rounded-lg font-semibold hover:bg-green-50 transition-colors"
-            >
-              ▶ Bắt đầu học
-            </button>
-          </div>
-        </div>
-      </header>
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.title}>Flashcard Nhật Ngữ</Text>
+          <Text style={styles.subtitle}>Học hiệu quả - Nhớ lâu hơn</Text>
+        </View>
+        <TouchableOpacity
+          onPress={() => setShowStartDialog(true)}
+          style={styles.startButton}
+        >
+          <Text style={styles.startButtonText}>▶ Bắt đầu học</Text>
+        </TouchableOpacity>
+      </View>
 
-      {/* Tabs */}
-      <div className="bg-white border-b sticky top-[88px] z-40">
-        <div className="max-w-7xl mx-auto px-4 flex gap-8">
-          {tabs.map((tab, index) => (
-            <button
-              key={index}
-              onClick={() => setSelectedTab(index)}
-              className={`py-4 px-2 border-b-2 font-medium ${
-                selectedTab === index
-                  ? 'border-green-600 text-green-600'
-                  : 'border-transparent text-gray-500'
-              }`}
-            >
+      <View style={styles.tabRow}>
+        {tabs.map((tab, idx) => (
+          <TouchableOpacity
+            key={tab}
+            onPress={() => setSelectedTab(idx)}
+            style={[
+              styles.tab,
+              selectedTab === idx ? styles.tabActive : styles.tabInactive,
+            ]}
+          >
+            <Text style={selectedTab === idx ? styles.tabTextActive : styles.tabTextInactive}>
               {tab}
-            </button>
-          ))}
-        </div>
-      </div>
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
-      {/* Content */}
-      <main className="max-w-7xl mx-auto px-4 py-6">
-        <FlashcardGrid flashcards={hiraganaCards} />
-      </main>
+      <View style={styles.content}>
+        {isLoading ? (
+          <ActivityIndicator size="large" color="#16a34a" />
+        ) : error ? (
+          <Text>{error}</Text>
+        ) : (
+          <FlatList
+            data={cardsForTab}
+            keyExtractor={(item) => item.id || item.term}
+            numColumns={3}
+            renderItem={({ item }) => <FlashcardItem flashcard={item} />}
+            columnWrapperStyle={{ justifyContent: 'space-between' }}
+            contentContainerStyle={{ paddingBottom: 48 }}
+          />
+        )}
+      </View>
 
-      {/* Study Setup Dialog */}
-      {showStartDialog && (
-        <StudySetupDialog
-          onClose={() => setShowStartDialog(false)}
-          onStart={(config) => {
-            setStudyConfig(config);
-            setShowStartDialog(false);
-          }}
-        />
-      )}
+      <StudySetupDialog
+        visible={showStartDialog}
+        onClose={() => setShowStartDialog(false)}
+        onStart={(config) => {
+          setStudyConfig(config);
+          setShowStartDialog(false);
+        }}
+      />
 
-      {/* Practice Session */}
       {studyConfig && (
         <PracticeSession
           config={studyConfig}
-          flashcards={hiraganaCards}
+          flashcards={cardsForTab}
           onClose={() => setStudyConfig(null)}
         />
       )}
-    </div>
-  );
-};
-
-const FlashcardGrid: React.FC<{ flashcards: Flashcard[] }> = ({ flashcards }) => {
-  return (
-    <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-      {flashcards.map((card, index) => (
-        <FlashcardItem key={index} flashcard={card} />
-      ))}
-    </div>
+    </SafeAreaView>
   );
 };
 
 const FlashcardItem: React.FC<{ flashcard: Flashcard }> = ({ flashcard }) => {
   const [isFlipped, setIsFlipped] = useState(false);
-
   return (
-    <div
-      onClick={() => setIsFlipped(!isFlipped)}
-      className="aspect-square bg-white rounded-lg shadow-md cursor-pointer hover:shadow-xl transition-all transform hover:scale-105"
+    <TouchableOpacity
+      onPress={() => setIsFlipped(!isFlipped)}
+      style={styles.card}
     >
-      <div className="w-full h-full flex items-center justify-center p-4">
-        <div className="text-center">
-          {isFlipped ? (
-            <div className="text-lg font-medium">{flashcard.definition}</div>
-          ) : (
-            <div className="text-3xl font-bold">{flashcard.term}</div>
-          )}
-        </div>
-      </div>
-    </div>
+      {isFlipped ? (
+        <Text style={styles.cardDefinition}>{flashcard.definition}</Text>
+      ) : (
+        <Text style={styles.cardTerm}>{flashcard.term}</Text>
+      )}
+    </TouchableOpacity>
   );
 };
 
 const StudySetupDialog: React.FC<{
+  visible: boolean;
   onClose: () => void;
   onStart: (config: { cardTypes: string[]; cardCount: number }) => void;
-}> = ({ onClose, onStart }) => {
+}> = ({ visible, onClose, onStart }) => {
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [cardCount, setCardCount] = useState(10);
 
@@ -142,83 +173,60 @@ const StudySetupDialog: React.FC<{
     if (type === 'mixed') {
       setSelectedTypes(['mixed']);
     } else {
-      setSelectedTypes(prev => {
-        const filtered = prev.filter(t => t !== 'mixed');
-        return prev.includes(type)
-          ? filtered.filter(t => t !== type)
-          : [...filtered, type];
+      setSelectedTypes((prev) => {
+        const filtered = prev.filter((t) => t !== 'mixed');
+        return prev.includes(type) ? filtered.filter((t) => t !== type) : [...filtered, type];
       });
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl max-w-md w-full p-6">
-        <h2 className="text-2xl font-bold text-green-700 mb-6">Thiết lập học tập</h2>
+    <Modal visible={visible} animationType="fade" transparent>
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalCard}>
+          <Text style={styles.modalTitle}>Thiết lập học tập</Text>
 
-        {/* Card Type Selection */}
-        <div className="mb-6">
-          <h3 className="font-semibold mb-3">Chọn loại thẻ (có thể chọn nhiều)</h3>
-          <div className="flex flex-wrap gap-2">
-            {cardTypeOptions.map(option => (
-              <button
+          <Text style={styles.modalSubtitle}>Chọn loại thẻ (có thể chọn nhiều)</Text>
+          <View style={styles.typeRow}>
+            {cardTypeOptions.map((option) => (
+              <TouchableOpacity
                 key={option.value}
-                onClick={() => toggleType(option.value)}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                  selectedTypes.includes(option.value)
-                    ? 'bg-green-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
+                onPress={() => toggleType(option.value)}
+                style={selectedTypes.includes(option.value) ? styles.typeSelected : styles.typeButton}
               >
-                {selectedTypes.includes(option.value) && '✓ '}
-                {option.label}
-              </button>
+                <Text style={selectedTypes.includes(option.value) ? styles.typeTextSelected : styles.typeText}>{option.label}</Text>
+              </TouchableOpacity>
             ))}
-          </div>
-        </div>
+          </View>
 
-        {/* Card Count Selection */}
-        <div className="mb-6">
-          <h3 className="font-semibold mb-3">Số lượng thẻ: {cardCount}</h3>
-          <div className="flex gap-2 overflow-x-auto pb-2">
-            {cardCountOptions.map(count => (
-              <button
-                key={count}
-                onClick={() => setCardCount(count)}
-                className={`w-12 h-12 rounded-full flex-shrink-0 font-medium transition-colors ${
-                  cardCount === count
-                    ? 'bg-green-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
+          <Text style={[styles.modalSubtitle, { marginTop: 12 }]}>Số lượng thẻ: {cardCount}</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginVertical: 8 }}>
+            {cardCountOptions.map((c) => (
+              <TouchableOpacity
+                key={c}
+                onPress={() => setCardCount(c)}
+                style={cardCount === c ? styles.countSelected : styles.countButton}
               >
-                {count}
-              </button>
+                <Text style={cardCount === c ? styles.countTextSelected : styles.countText}>{c}</Text>
+              </TouchableOpacity>
             ))}
-          </div>
-        </div>
+          </ScrollView>
 
-        {/* Buttons */}
-        <div className="flex gap-3">
-          <button
-            onClick={onClose}
-            className="flex-1 py-3 border border-gray-300 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
-          >
-            Hủy
-          </button>
-          <button
-            onClick={() => {
-              if (selectedTypes.length > 0) {
-                onStart({ cardTypes: selectedTypes, cardCount });
-              }
-            }}
-            disabled={selectedTypes.length === 0}
-            className="flex-1 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
-          >
-            ▶ Bắt đầu học
-          </button>
-        </div>
-      </div>
-    </div>
+          <View style={{ flexDirection: 'row', marginTop: 12 }}>
+            <TouchableOpacity onPress={onClose} style={styles.modalCancel}>
+              <Text>Hủy</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => selectedTypes.length > 0 && onStart({ cardTypes: selectedTypes, cardCount })}
+              style={[styles.modalStart, { opacity: selectedTypes.length === 0 ? 0.5 : 1 }]}
+              disabled={selectedTypes.length === 0}
+            >
+              <Text style={{ color: 'white' }}>▶ Bắt đầu học</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
   );
 };
 
@@ -235,14 +243,15 @@ const PracticeSession: React.FC<{
 
   const limitedCards = flashcards.slice(0, config.cardCount);
   const currentCard = limitedCards[currentIndex];
-  const progress = ((currentIndex + 1) / limitedCards.length) * 100;
+  const progress = limitedCards.length ? ((currentIndex + 1) / limitedCards.length) * 100 : 0;
 
   const checkAnswer = () => {
-    if (userAnswer.toLowerCase() === currentCard.definition.toLowerCase()) {
-      setScore(score + 10);
+    if (!currentCard) return;
+    if (userAnswer.trim().toLowerCase() === currentCard.definition.trim().toLowerCase()) {
+      setScore((s) => s + 10);
       nextCard();
     } else {
-      setRemainingAttempts(remainingAttempts - 1);
+      setRemainingAttempts((r) => r - 1);
       if (remainingAttempts <= 1) {
         setIsFlipped(true);
       }
@@ -251,7 +260,7 @@ const PracticeSession: React.FC<{
 
   const nextCard = () => {
     if (currentIndex < limitedCards.length - 1) {
-      setCurrentIndex(currentIndex + 1);
+      setCurrentIndex((i) => i + 1);
       setUserAnswer('');
       setIsFlipped(false);
       setRemainingAttempts(2);
@@ -261,90 +270,96 @@ const PracticeSession: React.FC<{
   };
 
   return (
-    <div className="fixed inset-0 bg-white z-50 overflow-auto">
-      <div className="max-w-2xl mx-auto p-4 space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold">Luyện tập</h2>
-          <div className="text-green-600 font-bold">Điểm: {score}</div>
-        </div>
+    <Modal visible animationType="slide">
+      <SafeAreaView style={{ flex: 1 }}>
+        <View style={{ padding: 16, flex: 1 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text style={{ fontSize: 18, fontWeight: '700' }}>Luyện tập</Text>
+            <Text style={{ color: '#16a34a', fontWeight: '700' }}>Điểm: {score}</Text>
+          </View>
 
-        {/* Progress */}
-        <div>
-          <div className="flex justify-between text-sm mb-2">
-            <span>Thẻ {currentIndex + 1}/{limitedCards.length}</span>
-            <span>{Math.round(progress)}%</span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div
-              className="bg-green-600 h-2 rounded-full transition-all"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        </div>
+          <View style={{ marginTop: 12 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <Text>Thẻ {currentIndex + 1}/{limitedCards.length}</Text>
+              <Text>{Math.round(progress)}%</Text>
+            </View>
+            <View style={{ height: 8, backgroundColor: '#e5e7eb', borderRadius: 8, marginTop: 6 }}>
+              <View style={{ width: `${progress}%`, height: 8, backgroundColor: '#16a34a', borderRadius: 8 }} />
+            </View>
+          </View>
 
-        {/* Card */}
-        <div className="bg-gradient-to-br from-green-50 to-blue-50 rounded-2xl p-8 text-center">
-          <div className="text-6xl font-bold mb-4">{currentCard.term}</div>
-          {isFlipped && (
-            <div className="text-2xl text-green-600 font-semibold">
-              Đáp án: {currentCard.definition}
-            </div>
+          <View style={{ marginTop: 20, borderRadius: 16, padding: 24, backgroundColor: '#f0fdf4', alignItems: 'center' }}>
+            <Text style={{ fontSize: 48, fontWeight: '800' }}>{currentCard?.term}</Text>
+            {isFlipped && (
+              <Text style={{ marginTop: 12, fontSize: 20, color: '#16a34a' }}>Đáp án: {currentCard?.definition}</Text>
+            )}
+          </View>
+
+          {!isFlipped ? (
+            <View style={{ marginTop: 12 }}>
+              <TextInput
+                placeholder="Nhập đáp án"
+                value={userAnswer}
+                onChangeText={setUserAnswer}
+                onSubmitEditing={checkAnswer}
+                style={{ borderWidth: 1, borderColor: '#d1d5db', padding: 12, borderRadius: 8 }}
+              />
+              <TouchableOpacity onPress={checkAnswer} style={{ marginTop: 12, backgroundColor: '#16a34a', padding: 12, borderRadius: 8, alignItems: 'center' }}>
+                <Text style={{ color: 'white', fontWeight: '700' }}>Kiểm tra</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity onPress={nextCard} style={{ marginTop: 12, backgroundColor: '#16a34a', padding: 12, borderRadius: 8, alignItems: 'center' }}>
+              <Text style={{ color: 'white', fontWeight: '700' }}>Tiếp tục</Text>
+            </TouchableOpacity>
           )}
-        </div>
 
-        {/* Attempts */}
-        {!isFlipped && (
-          <div className="text-center text-sm">
-            Lượt còn lại: {'❤️'.repeat(remainingAttempts)}
-          </div>
-        )}
-
-        {/* Input */}
-        {!isFlipped ? (
-          <div className="space-y-3">
-            <input
-              type="text"
-              value={userAnswer}
-              onChange={(e) => setUserAnswer(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && checkAnswer()}
-              placeholder="Nhập đáp án"
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-green-600 focus:outline-none"
-            />
-            <button
-              onClick={checkAnswer}
-              className="w-full py-3 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700"
-            >
-              Kiểm tra
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={nextCard}
-            className="w-full py-3 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700"
-          >
-            Tiếp tục
-          </button>
-        )}
-
-        {/* Control Buttons */}
-        <div className="flex gap-3">
-          <button
-            onClick={() => setIsFlipped(!isFlipped)}
-            className="flex-1 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-          >
-            Bỏ qua
-          </button>
-          <button
-            onClick={onClose}
-            className="flex-1 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-          >
-            Dừng
-          </button>
-        </div>
-      </div>
-    </div>
+          <View style={{ flexDirection: 'row', marginTop: 12, gap: 8 }}>
+            <TouchableOpacity onPress={() => setIsFlipped((s) => !s)} style={{ flex: 1, padding: 12, borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8, alignItems: 'center' }}>
+              <Text>Bỏ qua</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={onClose} style={{ flex: 1, padding: 12, borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8, alignItems: 'center' }}>
+              <Text>Dừng</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </SafeAreaView>
+    </Modal>
   );
 };
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#f8fafc' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, backgroundColor: '#16a34a' },
+  title: { color: 'white', fontSize: 18, fontWeight: '700' },
+  subtitle: { color: 'rgba(255,255,255,0.9)' },
+  startButton: { backgroundColor: 'white', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
+  startButtonText: { color: '#16a34a', fontWeight: '700' },
+  tabRow: { flexDirection: 'row', backgroundColor: 'white', paddingVertical: 8, paddingHorizontal: 12 },
+  tab: { marginRight: 8, paddingVertical: 8, paddingHorizontal: 10, borderRadius: 8 },
+  tabActive: { borderBottomWidth: 2, borderBottomColor: '#16a34a' },
+  tabInactive: {},
+  tabTextActive: { color: '#16a34a', fontWeight: '700' },
+  tabTextInactive: { color: '#6b7280' },
+  content: { flex: 1, padding: 12 },
+  card: { backgroundColor: 'white', borderRadius: 12, width: '30%', aspectRatio: 1, marginBottom: 12, alignItems: 'center', justifyContent: 'center', elevation: 2 },
+  cardTerm: { fontSize: 28, fontWeight: '800' },
+  cardDefinition: { fontSize: 16, fontWeight: '600' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 16 },
+  modalCard: { backgroundColor: 'white', borderRadius: 12, padding: 16 },
+  modalTitle: { fontSize: 20, fontWeight: '800', color: '#16a34a' },
+  modalSubtitle: { marginTop: 8, fontWeight: '600' },
+  typeRow: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 8, gap: 8 },
+  typeButton: { paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#f3f4f6', borderRadius: 999, marginRight: 8 },
+  typeSelected: { paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#16a34a', borderRadius: 999, marginRight: 8 },
+  typeText: { color: '#374151' },
+  typeTextSelected: { color: 'white' },
+  countButton: { padding: 12, backgroundColor: '#f3f4f6', borderRadius: 999, marginRight: 8 },
+  countSelected: { padding: 12, backgroundColor: '#16a34a', borderRadius: 999, marginRight: 8 },
+  countText: {},
+  countTextSelected: { color: 'white' },
+  modalCancel: { flex: 1, padding: 12, alignItems: 'center', borderRadius: 8, marginRight: 8, borderWidth: 1, borderColor: '#e5e7eb' },
+  modalStart: { flex: 1, padding: 12, alignItems: 'center', borderRadius: 8, backgroundColor: '#16a34a' },
+});
 
 export default FlashcardScreen;

@@ -1,16 +1,28 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { v4 as uuidv4 } from 'uuid';
-import { User } from '../types';
-import { UserRepository } from '../repositories/UserRepository';
-import { EmailSender } from '../utils/EmailSender';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  Alert,
+  ActivityIndicator,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
+  // Generate simple ID
+  const generateId = () => `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+import { User } from '../../../data/models/User';
+import { UserRepository } from '../../../data/repository/UserRepository';
+import { EmailSender } from '../../../utils/EmailSender';
 
-interface RegisterScreenProps {
+interface RegisterScreenProps extends NativeStackScreenProps<any, 'register'> {
   userRepository: UserRepository;
 }
 
-const RegisterScreen: React.FC<RegisterScreenProps> = ({ userRepository }) => {
-  const navigate = useNavigate();
+const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, userRepository }) => {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -52,8 +64,8 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ userRepository }) => {
     try {
       // Create user object
       const createdAt = new Date().toISOString();
-      const user: User = {
-        id: uuidv4(),
+        const user: User = {
+          id: generateId(),
         username: username.trim(),
         email: email.trim(),
         password: password,
@@ -62,6 +74,10 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ userRepository }) => {
         imageUrl: '',
         activityPoints: 0,
         online: false,
+        isLoggedIn: false,
+        rank: 'Tân binh',
+        partners: [],
+        admin: false,
       };
 
       console.log('Creating user:', {
@@ -76,40 +92,44 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ userRepository }) => {
 
       if (success) {
         setIsSendingOtp(true);
+        console.log('[RegisterScreen] User registered successfully, now sending OTP');
 
         // Generate and send OTP
         const otp = EmailSender.generateOTP();
+        console.log('[RegisterScreen] Generated OTP:', otp);
 
         try {
+          console.log('[RegisterScreen] Starting OTP send process...');
           await EmailSender.sendOTP(
             email,
             otp,
             () => {
               // Success callback
+              console.log('[RegisterScreen] ✅ OTP sent successfully');
               setMessage('Gửi OTP thành công!');
               setMessageType('success');
               setIsSendingOtp(false);
 
-              // Navigate to OTP screen with state
-              navigate('/otp-screen', {
-                state: {
-                  expectedOtp: otp,
-                  userEmail: email,
-                },
+              // Navigate to OTP screen with params
+              console.log('[RegisterScreen] Navigating to OTP screen with email:', email);
+              navigation.navigate('otp_screen', {
+                expectedOtp: otp,
+                userEmail: email,
               });
             },
             (error) => {
               // Failure callback
-              console.error('Error sending OTP:', error);
+              console.error('[RegisterScreen] ❌ Error sending OTP:', error);
+              const errorMessage = error instanceof Error ? error.message : 'Lỗi không xác định';
               setMessage(
-                `Không thể gửi OTP: ${error.message || 'Lỗi không xác định'}`
+                `Không thể gửi OTP: ${errorMessage}`
               );
               setMessageType('error');
               setIsSendingOtp(false);
             }
           );
         } catch (error) {
-          console.error('Error in OTP sending process:', error);
+          console.error('[RegisterScreen] Error in OTP sending process:', error);
           setMessage('Đã xảy ra lỗi khi gửi OTP');
           setMessageType('error');
           setIsSendingOtp(false);
@@ -117,6 +137,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ userRepository }) => {
       } else {
         setMessage('Tài khoản đã tồn tại!');
         setMessageType('error');
+        console.log('[RegisterScreen] Registration failed: Account already exists');
       }
     } catch (error) {
       console.error('Registration error:', error);
@@ -126,158 +147,286 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ userRepository }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-green-100 flex items-center justify-center p-6">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-lg border border-green-200 p-8">
-        {/* Title */}
-        <h1 className="text-3xl font-bold text-center text-green-800 mb-6">
-          Tạo tài khoản
-        </h1>
+    <KeyboardAvoidingView 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.container}
+    >
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.title}>Tạo tài khoản</Text>
+        </View>
 
-        {/* Username Input */}
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Tên người dùng
-          </label>
-          <input
-            type="text"
-            value={username}
-            onChange={(e) => {
-              setUsername(e.target.value);
-              setMessage('');
-            }}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-            placeholder="Nhập tên người dùng"
-          />
-        </div>
-
-        {/* Email Input */}
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Email
-          </label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => {
-              setEmail(e.target.value);
-              setMessage('');
-            }}
-            className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 ${
-              email && !isValidEmail(email)
-                ? 'border-red-500'
-                : 'border-gray-300'
-            }`}
-            placeholder="Nhập email của bạn"
-          />
-          {email && !isValidEmail(email) && (
-            <p className="text-red-500 text-xs mt-1">Email không hợp lệ!</p>
-          )}
-        </div>
-
-        {/* Password Input */}
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Mật khẩu
-          </label>
-          <div className="relative">
-            <input
-              type={passwordVisible ? 'text' : 'password'}
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
+        {/* Form Container */}
+        <View style={styles.formContainer}>
+          {/* Username Input */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Tên người dùng</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Nhập tên người dùng"
+              value={username}
+              onChangeText={(text) => {
+                setUsername(text);
                 setMessage('');
               }}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-              placeholder="Nhập mật khẩu (tối thiểu 6 ký tự)"
+              placeholderTextColor="#999"
             />
-            <button
-              type="button"
-              onClick={() => setPasswordVisible(!passwordVisible)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-            >
-              {passwordVisible ? (
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                  />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                  />
-                </svg>
-              ) : (
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
-                  />
-                </svg>
-              )}
-            </button>
-          </div>
-        </div>
+          </View>
 
-        {/* Register Button */}
-        <button
-          onClick={handleRegister}
-          disabled={isSendingOtp}
-          className={`w-full py-3 rounded-lg font-medium text-white transition ${
-            isSendingOtp
-              ? 'bg-gray-400 cursor-not-allowed'
-              : 'bg-green-700 hover:bg-green-800'
-          }`}
-        >
-          {isSendingOtp ? 'Đang gửi OTP...' : 'Đăng ký'}
-        </button>
+          {/* Email Input */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Email</Text>
+            <TextInput
+              style={[
+                styles.input,
+                email && !isValidEmail(email) && styles.inputError,
+              ]}
+              placeholder="Nhập email của bạn"
+              value={email}
+              onChangeText={(text) => {
+                setEmail(text);
+                setMessage('');
+              }}
+              keyboardType="email-address"
+              placeholderTextColor="#999"
+            />
+            {email && !isValidEmail(email) && (
+              <Text style={styles.errorText}>Email không hợp lệ!</Text>
+            )}
+          </View>
 
-        {/* Message Display */}
-        {message && (
-          <div
-            className={`mt-4 p-3 rounded-lg ${
-              messageType === 'success'
-                ? 'bg-green-50 border border-green-200'
-                : 'bg-red-50 border border-red-200'
-            }`}
+          {/* Password Input */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Mật khẩu</Text>
+            <View style={styles.passwordContainer}>
+              <TextInput
+                style={styles.passwordInput}
+                placeholder="Nhập mật khẩu (tối thiểu 6 ký tự)"
+                value={password}
+                onChangeText={(text) => {
+                  setPassword(text);
+                  setMessage('');
+                }}
+                secureTextEntry={!passwordVisible}
+                placeholderTextColor="#999"
+              />
+              <TouchableOpacity
+                onPress={() => setPasswordVisible(!passwordVisible)}
+                style={styles.eyeButton}
+              >
+                <Text style={styles.eyeButtonText}>
+                  {passwordVisible ? '👁️' : '👁️‍🗨️'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Register Button */}
+          <TouchableOpacity
+            style={[
+              styles.registerButton,
+              isSendingOtp && styles.registerButtonDisabled,
+            ]}
+            onPress={handleRegister}
+            disabled={isSendingOtp}
           >
-            <p
-              className={`text-sm text-center ${
-                messageType === 'success' ? 'text-green-700' : 'text-red-700'
-              }`}
-            >
-              {message}
-            </p>
-          </div>
-        )}
+            {isSendingOtp ? (
+              <>
+                <ActivityIndicator color="#fff" size="small" />
+                <Text style={styles.registerButtonText}>Đang gửi OTP...</Text>
+              </>
+            ) : (
+              <Text style={styles.registerButtonText}>Đăng ký</Text>
+            )}
+          </TouchableOpacity>
 
-        {/* Back to Login Link */}
-        <div className="text-center mt-6">
-          <button
-            onClick={() => navigate('/login')}
-            className="text-green-800 hover:text-green-600 font-medium"
+          {/* Message Display */}
+          {message && (
+            <View
+              style={[
+                styles.messageContainer,
+                messageType === 'success'
+                  ? styles.messageSuccess
+                  : styles.messageError,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.messageText,
+                  messageType === 'success'
+                    ? styles.messageTextSuccess
+                    : styles.messageTextError,
+                ]}
+              >
+                {message}
+              </Text>
+            </View>
+          )}
+
+          {/* (debug banner removed) */}
+          {/* Back to Login Link */}
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
           >
-            ← Quay lại đăng nhập
-          </button>
-        </div>
-      </div>
-    </div>
+            <Text style={styles.backButtonText}>← Quay lại đăng nhập</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f0fdf4',
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    padding: 20,
+  },
+  header: {
+    marginBottom: 30,
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#166534',
+  },
+  formContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#dcfce7',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  inputGroup: {
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    color: '#000',
+  },
+  inputError: {
+    borderColor: '#ef4444',
+  },
+  errorText: {
+    color: '#ef4444',
+    fontSize: 12,
+    marginTop: 4,
+  },
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    paddingRight: 10,
+  },
+  passwordInput: {
+    flex: 1,
+    padding: 12,
+    fontSize: 16,
+    color: '#000',
+  },
+  eyeButton: {
+    padding: 8,
+  },
+  eyeButtonText: {
+    fontSize: 16,
+  },
+  registerButton: {
+    backgroundColor: '#15803d',
+    borderRadius: 8,
+    padding: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    marginTop: 20,
+  },
+  registerButtonDisabled: {
+    backgroundColor: '#9ca3af',
+  },
+  registerButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  messageContainer: {
+    marginTop: 16,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  messageSuccess: {
+    backgroundColor: '#f0fdf4',
+    borderColor: '#bbf7d0',
+  },
+  messageError: {
+    backgroundColor: '#fef2f2',
+    borderColor: '#fecaca',
+  },
+  messageText: {
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  messageTextSuccess: {
+    color: '#166534',
+  },
+  messageTextError: {
+    color: '#b91c1c',
+  },
+  backButton: {
+    marginTop: 20,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  backButtonText: {
+    color: '#166534',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  debugBox: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: '#fffbe6',
+    borderWidth: 1,
+    borderColor: '#fde68a',
+    alignItems: 'center',
+  },
+  debugLabel: {
+    fontSize: 12,
+    color: '#92400e',
+    marginBottom: 6,
+    fontWeight: '600',
+  },
+  debugOtp: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#b45309',
+    letterSpacing: 4,
+  },
+});
 
 export default RegisterScreen;

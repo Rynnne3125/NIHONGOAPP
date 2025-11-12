@@ -1,33 +1,23 @@
 
-import { 
-  getFirestore, 
+import firestore, { 
   collection, 
   doc, 
   getDoc, 
   getDocs, 
   setDoc, 
   updateDoc,
-  deleteDoc,
   query, 
   where,
   orderBy,
-  increment,
   serverTimestamp,
-  Timestamp
-} from 'firebase/firestore';
+  FieldValue,
+} from '@react-native-firebase/firestore';
 import CryptoJS from 'crypto-js';
 import { 
-  User, 
-  Course, 
-  CourseReview, 
-  Lesson, 
-  Exercise, 
-  Flashcard, 
-  UserProgress,
-  calculateRank 
-} from './types';
+  Exercise
+} from '../models';
 
-const db = getFirestore();
+const db = firestore();
 export class ExerciseRepository {
   async getExercisesBySubLessonId(subLessonId: string, lessonId: string): Promise<Exercise[]> {
     try {

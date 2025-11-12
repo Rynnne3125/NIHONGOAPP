@@ -1,370 +1,344 @@
 import React, { useState, useEffect } from 'react';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { View, Text, Image, StyleSheet, SafeAreaView, ScrollView, ActivityIndicator, TouchableOpacity, FlatList } from 'react-native';
+import type { Course, Lesson, UnitItem, SubLesson } from '../../../data/models';
+import { CourseRepository } from '../../../data/repository/CourseRepository';
+import { LessonRepository } from '../../../data/repository/LessonRepository';
+import { UserRepository } from '../../../data/repository/UserRepository';
 
-interface Course {
-  id: string;
-  title: string;
-  description: string;
-  imageRes: string;
-  vip: boolean;
-  rating: number;
+interface LessonsScreenProps extends NativeStackScreenProps<any> {
+	courseRepo: CourseRepository;
+	lessonRepo: LessonRepository;
+	userRepo?: UserRepository;
 }
 
-interface SubLesson {
-  id: string;
-  title: string;
-  type: string;
-  isCompleted: boolean;
-}
+const LessonsScreen: React.FC<LessonsScreenProps> = ({ route, navigation, courseRepo, lessonRepo }) => {
+	const [selectedTab, setSelectedTab] = useState(0);
+	const [course, setCourse] = useState<Course | null>(null);
+	const [lessons, setLessons] = useState<Lesson[]>([]);
+	const [expandedLessons, setExpandedLessons] = useState<Record<string, boolean>>({});
+	const [expandedUnits, setExpandedUnits] = useState<Record<string, boolean>>({});
+	const [isLoading, setIsLoading] = useState(true);
+	const [error, setError] = useState<string | null>(null);
 
-interface UnitItem {
-  unitTitle: string;
-  progress: string;
-  subLessons: SubLesson[];
-}
+	const tabs = ['Bài học', 'Tiến độ', 'Tài liệu', 'Đánh giá', 'Thích/Không thích'];
 
-interface Lesson {
-  id: string;
-  step: number;
-  stepTitle: string;
-  overview: string;
-  totalUnits: number;
-  completedUnits: number;
-  units: UnitItem[];
-}
+	const courseId = route.params?.courseId || '';
+	const userEmail = route.params?.userEmail || '';
 
-const LessonsScreen: React.FC = () => {
-  const [selectedTab, setSelectedTab] = useState(0);
-  const [course, setCourse] = useState<Course | null>(null);
-  const [lessons, setLessons] = useState<Lesson[]>([]);
-  const [expandedLessons, setExpandedLessons] = useState<Record<string, boolean>>({});
-  const [expandedUnits, setExpandedUnits] = useState<Record<string, boolean>>({});
+	useEffect(() => {
+		const loadData = async () => {
+			try {
+				setIsLoading(true);
+				setError(null);
 
-  const tabs = ['Bài học', 'Tiến độ', 'Tài liệu', 'Đánh giá', 'Thích/Không thích'];
+				if (!courseId) {
+					setError('Course ID is missing');
+					return;
+				}
 
-  useEffect(() => {
-    // Mock data
-    setCourse({
-      id: '1',
-      title: 'Hiragana Cơ Bản',
-      description: 'Học bảng chữ cái Hiragana từ đầu',
-      imageRes: 'https://images.unsplash.com/photo-1528164344705-47542687000d?w=800',
-      vip: false,
-      rating: 4.5
-    });
+				const courseData = await courseRepo.getCourseById(courseId);
+				if (courseData) setCourse(courseData);
 
-    setLessons([
-      {
-        id: '1',
-        step: 1,
-        stepTitle: 'Bước 1: Giới thiệu về Hiragana',
-        overview: 'Tổng quan bảng chữ Hiragana',
-        totalUnits: 2,
-        completedUnits: 0,
-        units: [
-          {
-            unitTitle: 'Giới thiệu Hiragana',
-            progress: '0/2',
-            subLessons: [
-              { id: '1-1', title: 'Hiragana là gì?', type: 'Video', isCompleted: false },
-              { id: '1-2', title: 'Tại sao nên học Hiragana?', type: 'Practice', isCompleted: false }
-            ]
-          }
-        ]
-      },
-      {
-        id: '2',
-        step: 2,
-        stepTitle: 'Bước 2: Học hàng あ',
-        overview: 'Học các chữ cái: あ, い, う, え, お',
-        totalUnits: 3,
-        completedUnits: 1,
-        units: [
-          {
-            unitTitle: 'Hàng あ',
-            progress: '1/3',
-            subLessons: [
-              { id: '2-1', title: 'Phát âm và cách viết', type: 'Video', isCompleted: true },
-              { id: '2-2', title: 'Từ vựng với あ hàng', type: 'Practice', isCompleted: false },
-              { id: '2-3', title: 'Luyện viết hàng あ', type: 'Practice', isCompleted: false }
-            ]
-          }
-        ]
-      }
-    ]);
-  }, []);
+				const lessonsData = await lessonRepo.getLessonsByCourseId(courseId);
+				setLessons(lessonsData || []);
+			} catch (err) {
+				console.error('Error loading LessonsScreen data:', err);
+				setError('Failed to load lessons from Firestore');
+			} finally {
+				setIsLoading(false);
+			}
+		};
 
-  const toggleLesson = (lessonId: string) => {
-    setExpandedLessons(prev => ({ ...prev, [lessonId]: !prev[lessonId] }));
-  };
+		loadData();
+	}, [courseId, courseRepo, lessonRepo]);
 
-  const toggleUnit = (unitKey: string) => {
-    setExpandedUnits(prev => ({ ...prev, [unitKey]: !prev[unitKey] }));
-  };
+	const toggleLesson = (lessonId: string) => {
+		setExpandedLessons(prev => ({ ...prev, [lessonId]: !prev[lessonId] }));
+	};
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-green-600 text-white shadow-md sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center gap-3">
-          <button className="hover:bg-green-700 p-2 rounded-full">←</button>
-          <h1 className="text-xl font-bold">{course?.title || 'Loading...'}</h1>
-        </div>
-      </header>
+	const toggleUnit = (unitKey: string) => {
+		setExpandedUnits(prev => ({ ...prev, [unitKey]: !prev[unitKey] }));
+	};
 
-      {/* Course Header Image */}
-      {course && (
-        <div className="relative h-48">
-          <img
-            src={course.imageRes}
-            alt={course.title}
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-          <div className="absolute bottom-4 left-4 text-white">
-            {course.vip && (
-              <span className="bg-yellow-400 text-black px-3 py-1 rounded-full text-xs font-bold mb-2 inline-block">
-                VIP
-              </span>
-            )}
-            <h2 className="text-2xl font-bold">{course.title}</h2>
-            <div className="flex items-center gap-4 mt-2 text-sm">
-              <span>⭐ {course.rating}</span>
-            </div>
-          </div>
-        </div>
-      )}
+	if (isLoading) {
+		return (
+			<SafeAreaView style={styles.centered}>
+				<ActivityIndicator size="large" color="#16a34a" />
+				<Text style={styles.loadingText}>Đang tải bài học từ Firestore...</Text>
+			</SafeAreaView>
+		);
+	}
 
-      {/* Tabs */}
-      <div className="bg-white border-b sticky top-[72px] z-40 overflow-x-auto">
-        <div className="max-w-7xl mx-auto px-4 flex gap-6">
-          {tabs.map((tab, index) => (
-            <button
-              key={index}
-              onClick={() => setSelectedTab(index)}
-              className={`py-4 px-2 border-b-2 font-medium whitespace-nowrap ${
-                selectedTab === index
-                  ? 'border-green-600 text-green-600'
-                  : 'border-transparent text-gray-500'
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
-      </div>
+	if (error) {
+		return (
+			<SafeAreaView style={styles.centered}>
+				<View style={styles.cardSmall}>
+					<Text style={styles.errorTitle}>⚠️ Lỗi</Text>
+					<Text style={styles.errorText}>{error}</Text>
+					<TouchableOpacity style={styles.primaryButton} onPress={() => navigation.goBack()}>
+						<Text style={styles.primaryButtonText}>Quay lại</Text>
+					</TouchableOpacity>
+				</View>
+			</SafeAreaView>
+		);
+	}
 
-      {/* Content */}
-      <main className="max-w-7xl mx-auto px-4 py-6">
-        {selectedTab === 0 && (
-          <div className="space-y-4">
-            {lessons.map(lesson => (
-              <LessonCard
-                key={lesson.id}
-                lesson={lesson}
-                isExpanded={expandedLessons[lesson.id] || false}
-                onToggle={() => toggleLesson(lesson.id)}
-                expandedUnits={expandedUnits}
-                onToggleUnit={toggleUnit}
-              />
-            ))}
-          </div>
-        )}
+	return (
+		<SafeAreaView style={styles.screen}>
+			{/* Header */}
+			<View style={styles.header}>
+				<TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+					<Text style={styles.backText}>←</Text>
+				</TouchableOpacity>
+				<Text style={styles.headerTitle}>{course?.title || 'Bài học'}</Text>
+			</View>
 
-        {selectedTab === 1 && <ProgressTab lessons={lessons} />}
-        {selectedTab === 2 && <MaterialsTab />}
-      </main>
-    </div>
-  );
+			{course && (
+				<View style={styles.courseHeaderImage}>
+					<Image source={{ uri: course.imageRes }} style={styles.courseImage} />
+					<View style={styles.courseOverlay} />
+					<View style={styles.courseInfo}>
+						{course.vip && <View style={styles.vipBadge}><Text style={styles.vipBadgeText}>VIP</Text></View>}
+						<Text style={styles.courseTitle}>{course.title}</Text>
+						<Text style={styles.smallText}>⭐ {course.rating}</Text>
+					</View>
+				</View>
+			)}
+
+			{/* Tabs */}
+			<View style={styles.tabsContainer}>
+				{tabs.map((tab, index) => (
+					<TouchableOpacity key={index} onPress={() => setSelectedTab(index)} style={[styles.tabButton, selectedTab === index ? styles.tabActive : undefined]}>
+						<Text style={[styles.tabText, selectedTab === index ? styles.tabTextActive : undefined]}>{tab}</Text>
+					</TouchableOpacity>
+				))}
+			</View>
+
+			{/* Content */}
+			<ScrollView contentContainerStyle={styles.container}>
+				{selectedTab === 0 && (
+					<View style={{ width: '100%' }}>
+						{lessons.length === 0 ? (
+							<Text style={[styles.smallText, { textAlign: 'center', paddingVertical: 20 }]}>Không có bài học nào</Text>
+						) : (
+							lessons.map(lesson => (
+								<LessonCard
+									key={lesson.id}
+									lesson={lesson}
+									isExpanded={!!expandedLessons[lesson.id]}
+									onToggle={() => toggleLesson(lesson.id)}
+									expandedUnits={expandedUnits}
+									onToggleUnit={toggleUnit}
+								/>
+							))
+						)}
+					</View>
+				)}
+
+				{selectedTab === 1 && <ProgressTab lessons={lessons} />}
+				{selectedTab === 2 && <MaterialsTab />}
+			</ScrollView>
+		</SafeAreaView>
+	);
 };
 
 const LessonCard: React.FC<{
-  lesson: Lesson;
-  isExpanded: boolean;
-  onToggle: () => void;
-  expandedUnits: Record<string, boolean>;
-  onToggleUnit: (unitKey: string) => void;
+	lesson: Lesson;
+	isExpanded: boolean;
+	onToggle: () => void;
+	expandedUnits: Record<string, boolean>;
+	onToggleUnit: (unitKey: string) => void;
 }> = ({ lesson, isExpanded, onToggle, expandedUnits, onToggleUnit }) => {
-  const isCompleted = lesson.completedUnits === lesson.totalUnits;
-  const progress = lesson.totalUnits > 0 ? (lesson.completedUnits / lesson.totalUnits) : 0;
+	const isCompleted = lesson.completedUnits === lesson.totalUnits;
+	const progress = lesson.totalUnits > 0 ? (lesson.completedUnits / lesson.totalUnits) : 0;
 
-  return (
-    <div className="bg-white rounded-xl shadow-md overflow-hidden">
-      {/* Lesson Header */}
-      <div
-        onClick={onToggle}
-        className="p-4 cursor-pointer hover:bg-gray-50 transition-colors"
-      >
-        <div className="flex items-center gap-4">
-          <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold ${
-            isCompleted ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-600'
-          }`}>
-            {isCompleted ? '✓' : lesson.step}
-          </div>
+	return (
+		<View style={styles.lessonCard}>
+			<TouchableOpacity onPress={onToggle} style={styles.lessonHeader}>
+				<View style={[styles.lessonBadge, isCompleted ? styles.badgeDone : styles.badgeTodo]}>
+					<Text style={isCompleted ? styles.badgeDoneText : styles.badgeTodoText}>{isCompleted ? '✓' : lesson.step}</Text>
+				</View>
 
-          <div className="flex-1">
-            <h3 className="font-bold text-lg">{lesson.stepTitle}</h3>
-            <p className="text-sm text-gray-600">
-              {lesson.completedUnits}/{lesson.totalUnits} đã hoàn thành
-            </p>
-          </div>
+				<View style={styles.flex1}>
+					<Text style={styles.lessonTitle}>{lesson.stepTitle}</Text>
+					<Text style={styles.smallText}>{lesson.completedUnits}/{lesson.totalUnits} đã hoàn thành</Text>
+				</View>
 
-          <span className="text-2xl text-green-600">
-            {isExpanded ? '▲' : '▼'}
-          </span>
-        </div>
+				<Text style={styles.expandIcon}>{isExpanded ? '▲' : '▼'}</Text>
+			</TouchableOpacity>
 
-        <div className="mt-3">
-          <div className="w-full bg-gray-200 rounded-full h-1">
-            <div
-              className="bg-green-600 h-1 rounded-full transition-all"
-              style={{ width: `${progress * 100}%` }}
-            />
-          </div>
-        </div>
-      </div>
+			<View style={styles.progressBarBg}><View style={[styles.progressBarFill, { width: `${progress * 100}%` }]} /></View>
 
-      {/* Expanded Content */}
-      {isExpanded && (
-        <div className="border-t">
-          {lesson.overview && (
-            <div className="p-4 bg-gray-50">
-              <h4 className="font-semibold mb-2">Tổng quan</h4>
-              <p className="text-sm text-gray-700">{lesson.overview}</p>
-            </div>
-          )}
+			{isExpanded && (
+				<View style={styles.expandedSection}>
+					{lesson.overview ? (
+						<View style={styles.overviewBox}>
+							<Text style={styles.overviewTitle}>Tổng quan</Text>
+							<Text style={styles.smallText}>{lesson.overview}</Text>
+						</View>
+					) : null}
 
-          {lesson.units.map((unit, unitIndex) => {
-            const unitKey = `${lesson.id}_${unitIndex}`;
-            return (
-              <UnitCard
-                key={unitKey}
-                unit={unit}
-                isExpanded={expandedUnits[unitKey] || false}
-                onToggle={() => onToggleUnit(unitKey)}
-              />
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
+					{lesson.units.map((unit, unitIndex) => {
+						const unitKey = `${lesson.id}_${unitIndex}`;
+						return (
+							<UnitCard key={unitKey} unit={unit} isExpanded={!!expandedUnits[unitKey]} onToggle={() => onToggleUnit(unitKey)} />
+						);
+					})}
+				</View>
+			)}
+		</View>
+	);
 };
 
 const UnitCard: React.FC<{
-  unit: UnitItem;
-  isExpanded: boolean;
-  onToggle: () => void;
+	unit: UnitItem;
+	isExpanded: boolean;
+	onToggle: () => void;
 }> = ({ unit, isExpanded, onToggle }) => {
-  return (
-    <div className="border-t">
-      <div
-        onClick={onToggle}
-        className="p-4 cursor-pointer hover:bg-gray-50 transition-colors flex items-center gap-3"
-      >
-        <span className="text-xl text-green-600">📁</span>
-        <div className="flex-1">
-          <h4 className="font-semibold">{unit.unitTitle}</h4>
-          <p className="text-sm text-gray-500">{unit.progress}</p>
-        </div>
-        <span className="text-green-600">{isExpanded ? '▲' : '▼'}</span>
-      </div>
+	return (
+		<View style={styles.unitCard}>
+			<TouchableOpacity onPress={onToggle} style={styles.unitHeader}>
+				<Text style={styles.unitIcon}>📁</Text>
+				<View style={styles.flex1}>
+					<Text style={styles.unitTitle}>{unit.unitTitle}</Text>
+					<Text style={styles.smallText}>{unit.progress}</Text>
+				</View>
+				<Text style={styles.unitExpand}>{isExpanded ? '▲' : '▼'}</Text>
+			</TouchableOpacity>
 
-      {isExpanded && (
-        <div className="px-4 pb-4 space-y-2">
-          {unit.subLessons.map(subLesson => (
-            <SubLessonItem key={subLesson.id} subLesson={subLesson} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
+			{isExpanded && (
+				<View style={styles.subLessonList}>
+					{unit.subLessons.map(subLesson => (
+						<SubLessonItem key={subLesson.id} subLesson={subLesson} />
+					))}
+				</View>
+			)}
+		</View>
+	);
 };
 
 const SubLessonItem: React.FC<{ subLesson: SubLesson }> = ({ subLesson }) => {
-  const icon = subLesson.type === 'Video' ? '▶️' : '✏️';
-  const color = subLesson.isCompleted ? 'text-green-600' : 'text-gray-500';
+	const icon = subLesson.type === 'Video' ? '▶️' : '✏️';
 
-  return (
-    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer">
-      <span className="text-lg">{icon}</span>
-      <span className={`flex-1 ${color}`}>{subLesson.title}</span>
-      {subLesson.isCompleted ? (
-        <span className="text-green-600">✓</span>
-      ) : (
-        <span className="text-green-600">→</span>
-      )}
-    </div>
-  );
+	return (
+		<TouchableOpacity style={styles.subLessonItem} onPress={() => {}}>
+			<Text style={styles.subIcon}>{icon}</Text>
+			<Text style={[styles.flex1, subLesson.isCompleted ? styles.completedText : styles.smallText]}>{subLesson.title}</Text>
+			<Text style={styles.subAction}>{subLesson.isCompleted ? '✓' : '→'}</Text>
+		</TouchableOpacity>
+	);
 };
 
 const ProgressTab: React.FC<{ lessons: Lesson[] }> = ({ lessons }) => {
-  const totalLessons = lessons.length;
-  const completedLessons = lessons.filter(l => l.completedUnits === l.totalUnits).length;
-  const progress = totalLessons > 0 ? (completedLessons / totalLessons) * 100 : 0;
+	const totalLessons = lessons.length;
+	const completedLessons = lessons.filter(l => l.completedUnits === l.totalUnits).length;
+	const progress = totalLessons > 0 ? (completedLessons / totalLessons) * 100 : 0;
 
-  return (
-    <div className="space-y-6">
-      <div className="bg-white rounded-xl shadow-md p-6">
-        <h3 className="font-bold mb-4">Tổng quan tiến độ</h3>
-        <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
-          <div
-            className="bg-green-600 h-2 rounded-full"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-        <div className="flex justify-between text-sm">
-          <span>Hoàn thành: {completedLessons}/{totalLessons} bài học</span>
-          <span className="text-green-600 font-bold">{Math.round(progress)}%</span>
-        </div>
-      </div>
+	return (
+		<View>
+			<View style={styles.progressOverview}>
+				<Text style={styles.overviewTitle}>Tổng quan tiến độ</Text>
+				<View style={styles.progressBarBg}><View style={[styles.progressBarFill, { width: `${progress}%` }]} /></View>
+				<View style={styles.progressMeta}><Text>Hoàn thành: {completedLessons}/{totalLessons} bài học</Text><Text style={styles.progressValue}>{Math.round(progress)}%</Text></View>
+			</View>
 
-      <div>
-        <h3 className="font-bold mb-4">Chi tiết tiến độ bài học</h3>
-        <div className="space-y-2">
-          {lessons.map(lesson => {
-            const isCompleted = lesson.completedUnits === lesson.totalUnits;
-            return (
-              <div key={lesson.id} className="bg-white rounded-lg shadow p-4 flex items-center gap-4">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                  isCompleted ? 'bg-green-600 text-white' : 'bg-gray-200'
-                }`}>
-                  {isCompleted ? '✓' : ''}
-                </div>
-                <span className={isCompleted ? 'text-green-600' : 'text-gray-600'}>
-                  {lesson.stepTitle}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
+			<View>
+				<Text style={styles.overviewTitle}>Chi tiết tiến độ bài học</Text>
+				{lessons.map(lesson => (
+					<View key={lesson.id} style={styles.lessonOverviewRow}>
+						<View style={[styles.smallBadge, lesson.completedUnits === lesson.totalUnits ? styles.badgeDone : styles.badgeTodo]}>
+							{lesson.completedUnits === lesson.totalUnits ? <Text style={styles.badgeDoneText}>✓</Text> : null}
+						</View>
+						<Text style={lesson.completedUnits === lesson.totalUnits ? styles.completedText : styles.smallText}>{lesson.stepTitle}</Text>
+					</View>
+				))}
+			</View>
+		</View>
+	);
 };
 
 const MaterialsTab: React.FC = () => {
-  const materials = [
-    { title: 'Bảng chữ Hiragana', type: 'hiragana' },
-    { title: 'Bảng chữ Katakana', type: 'katakana' },
-    { title: 'Kanji cơ bản N5', type: 'kanji' },
-    { title: 'Từ vựng N5', type: 'vocabulary' }
-  ];
+	const materials = [
+		{ title: 'Bảng chữ Hiragana', type: 'hiragana' },
+		{ title: 'Bảng chữ Katakana', type: 'katakana' },
+		{ title: 'Kanji cơ bản N5', type: 'kanji' },
+		{ title: 'Từ vựng N5', type: 'vocabulary' }
+	];
 
-  return (
-    <div className="space-y-4">
-      <h3 className="text-xl font-bold">Tài liệu khóa học</h3>
-      {materials.map((material, index) => (
-        <div
-          key={index}
-          className="bg-white rounded-lg shadow p-4 flex items-center gap-3 cursor-pointer hover:shadow-md transition-shadow"
-        >
-          <span className="text-2xl">📚</span>
-          <span className="flex-1 font-medium">{material.title}</span>
-          <span className="text-green-600">→</span>
-        </div>
-      ))}
-    </div>
-  );
+	return (
+		<View>
+			<Text style={styles.overviewTitle}>Tài liệu khóa học</Text>
+			{materials.map((material, index) => (
+				<TouchableOpacity key={index} style={styles.materialItem} onPress={() => {}}>
+					<Text style={styles.materialIcon}>📚</Text>
+					<Text style={styles.flex1}>{material.title}</Text>
+					<Text style={styles.subAction}>→</Text>
+				</TouchableOpacity>
+			))}
+		</View>
+	);
 };
+
+const styles = StyleSheet.create({
+	screen: { flex: 1, backgroundColor: '#f8fafc' },
+	container: { padding: 16, paddingBottom: 40 },
+	centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+	loadingText: { marginTop: 12, color: '#6b7280' },
+	header: { flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: '#16a34a' },
+	backButton: { padding: 6, marginRight: 8 },
+	backText: { color: '#fff', fontSize: 18 },
+	headerTitle: { color: '#fff', fontWeight: '700', fontSize: 16 },
+	courseHeaderImage: { height: 180, marginBottom: 8 },
+	courseImage: { width: '100%', height: '100%' },
+	courseOverlay: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.25)' },
+	courseInfo: { position: 'absolute', bottom: 12, left: 12 },
+	vipBadge: { backgroundColor: '#fde68a', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, marginBottom: 6 },
+	vipBadgeText: { color: '#92400e', fontWeight: '700' },
+	courseTitle: { color: '#fff', fontWeight: '700', fontSize: 18 },
+	smallText: { color: '#6b7280', fontSize: 12 },
+	tabsContainer: { flexDirection: 'row', backgroundColor: '#fff', borderBottomWidth: 1, borderColor: '#e5e7eb' },
+	tabButton: { paddingVertical: 12, paddingHorizontal: 14 },
+	tabText: { color: '#6b7280' },
+	tabActive: { borderBottomWidth: 2, borderColor: '#16a34a' },
+	tabTextActive: { color: '#16a34a', fontWeight: '700' },
+	lessonCard: { backgroundColor: '#fff', borderRadius: 10, marginBottom: 12, overflow: 'hidden' },
+	lessonHeader: { flexDirection: 'row', alignItems: 'center', padding: 12 },
+	lessonBadge: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+	badgeDone: { backgroundColor: '#16a34a' },
+	badgeTodo: { backgroundColor: '#e5e7eb' },
+	badgeDoneText: { color: '#fff', fontWeight: '700' },
+	badgeTodoText: { color: '#4b5563', fontWeight: '700' },
+	lessonTitle: { fontWeight: '700' },
+	expandIcon: { fontSize: 18, color: '#16a34a' },
+	progressBarBg: { height: 8, backgroundColor: '#e5e7eb', borderRadius: 8, overflow: 'hidden', marginHorizontal: 12, marginBottom: 8 },
+	progressBarFill: { height: 8, backgroundColor: '#16a34a' },
+	expandedSection: { padding: 8 },
+	overviewBox: { backgroundColor: '#f3f4f6', padding: 8, borderRadius: 8, marginBottom: 8 },
+	overviewTitle: { fontWeight: '700', marginBottom: 6 },
+	unitCard: { borderTopWidth: 1, borderColor: '#e5e7eb' },
+	unitHeader: { flexDirection: 'row', alignItems: 'center', padding: 12 },
+	unitIcon: { marginRight: 8 },
+	unitTitle: { fontWeight: '700' },
+	subLessonList: { paddingHorizontal: 12, paddingBottom: 8 },
+	subLessonItem: { flexDirection: 'row', alignItems: 'center', padding: 10, backgroundColor: '#f8fafc', borderRadius: 8, marginBottom: 8 },
+	subIcon: { marginRight: 8 },
+	subAction: { color: '#16a34a', marginLeft: 8 },
+	completedText: { color: '#16a34a' },
+	progressOverview: { backgroundColor: '#fff', padding: 12, borderRadius: 10, marginBottom: 12 },
+	progressMeta: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
+	progressValue: { color: '#16a34a', fontWeight: '700' },
+	lessonOverviewRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', padding: 12, borderRadius: 8, marginBottom: 8 },
+	smallBadge: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginRight: 8 },
+	materialItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', padding: 12, borderRadius: 8, marginBottom: 8 },
+	materialIcon: { marginRight: 8 },
+	cardSmall: { backgroundColor: '#fff', padding: 16, borderRadius: 12, width: '90%', alignItems: 'center' },
+	errorTitle: { fontSize: 18, fontWeight: '700', color: '#dc2626', marginBottom: 8 },
+	errorText: { color: '#374151', marginBottom: 8, textAlign: 'center' },
+	primaryButton: { marginTop: 12, backgroundColor: '#16a34a', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8 },
+	primaryButtonText: { color: '#fff', fontWeight: '700' },
+		flex1: { flex: 1 },
+		unitExpand: { color: '#16a34a' },
+});
 
 export default LessonsScreen;

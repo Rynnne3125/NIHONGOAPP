@@ -11,16 +11,23 @@
     "gen:tsx": "node ./tools/convert_kotlin_to_tsx.js"
   },
   "dependencies": {
+    "@react-native-async-storage/async-storage": "^1.24.0",
+    "@react-native-firebase/app": "^23.5.0",
+    "@react-native-firebase/firestore": "^23.5.0",
+    "@react-native-firebase/messaging": "^23.5.0",
     "@react-native/new-app-screen": "0.82.1",
-    "@react-navigation/native": "^6.1.6",
-    "@react-navigation/native-stack": "^6.9.12",
+    "@react-navigation/bottom-tabs": "^6.6.1",
+    "@react-navigation/native": "^6.1.18",
+    "@react-navigation/native-stack": "^6.11.0",
+    "axios": "^1.13.2",
     "crypto-js": "^4.2.0",
-    "firebase": "^12.5.0",
     "react": "19.1.1",
     "react-native": "0.82.1",
-    "react-native-gesture-handler": "^2.12.0",
+    "react-native-gesture-handler": "^2.29.1",
+    "react-native-onesignal": "^5.2.14",
+    "react-native-permissions": "^5.4.4",
     "react-native-safe-area-context": "^5.5.2",
-    "react-native-screens": "^3.22.0"
+    "react-native-screens": "^4.18.0"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

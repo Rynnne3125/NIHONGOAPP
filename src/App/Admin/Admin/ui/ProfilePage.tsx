@@ -14,40 +14,7 @@ export default function ProfilePageScreen(props: any) {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-  </View>
-  </View>
-  <Text>Admin Profile</Text>
-  <Button title="Action" onPress={() => { /* TODO */ }} />
-  </View>
-  </View>
-  </View>
-  <View style={{ /* container */ }}>
-  <View style={{ /* container */ }}>
-  <View style={{ /* container */ }}>
-  </View>
-  </View>
-  <View style={{ /* container */ }}>
-  </View>
-  </View>
-  </View>
-  <Text>Logout</Text>
-  <Text>Are you sure you want to logout?</Text>
-  <Button title="Action" onPress={() => { /* TODO */ }} />
-  </View>
-  </View>
-  <Text>Logout</Text>
-  </View>
-  </View>
-  <Button title="Action" onPress={() => { /* TODO */ }} />
-  <Text>Cancel</Text>
-  </View>
-  </View>
-  </View>
-  </View>
-  <View style={{ /* container */ }}>
-  </View>
-  </View>
-  </View>
+
     </ScrollView>
   );
 }

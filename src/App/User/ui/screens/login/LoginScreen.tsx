@@ -1,13 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { UserRepository } from '../repositories/UserRepository';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  SafeAreaView,
+  Image,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+} from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { UserRepository } from '../../../data/repository/UserRepository';
+import { SessionManager } from '../../../utils/SessionManager';
 
-interface LoginScreenProps {
-  userRepository: UserRepository;
+interface LoginScreenProps extends NativeStackScreenProps<any, 'login'> {
+  userRepo: UserRepository;
 }
 
-const LoginScreen: React.FC<LoginScreenProps> = ({ userRepository }) => {
-  const navigate = useNavigate();
+const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route, userRepo }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
@@ -24,25 +38,46 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ userRepository }) => {
   // Check if user is already logged in
   useEffect(() => {
     const checkSession = async () => {
-      const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+      try {
+        const isLoggedIn = await SessionManager.isLoggedIn();
 
-      // Clear OneSignal tags (equivalent to Kotlin code)
-      // This would need OneSignal SDK integration
-
-      if (isLoggedIn) {
-        const userEmail = localStorage.getItem('userEmail');
-        if (userEmail) {
-          navigate(`/home/${userEmail}`, { replace: true });
+        if (isLoggedIn) {
+          const userData = await SessionManager.getUserDetails();
+          if (userData) {
+            // Navigate to home
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'main_tabs', params: { userEmail: userData.email } }],
+            });
+          } else {
+            setIsCheckingSession(false);
+          }
         } else {
           setIsCheckingSession(false);
         }
-      } else {
+      } catch (error) {
+        console.error('Error checking session:', error);
         setIsCheckingSession(false);
       }
     };
 
-    setTimeout(checkSession, 1000);
-  }, [navigate]);
+    const timer = setTimeout(checkSession, 500);
+    return () => clearTimeout(timer);
+  }, [navigation]);
+
+  // If navigated from registration with OTP verified, prefill email and show success message
+  useEffect(() => {
+    try {
+      const params = route?.params as any;
+      if (params?.registeredSuccess) {
+        const regEmail = params?.registeredEmail as string | undefined;
+        if (regEmail) setEmail(regEmail);
+        setMessage('Đăng ký thành công! Vui lòng đăng nhập.');
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, [route?.params]);
 
   const handleLogin = async () => {
     setMessage('');
@@ -63,24 +98,48 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ userRepository }) => {
         return;
       }
 
+      console.log('[LoginScreen] Starting login attempt for email:', email);
+
       // Attempt login
-      const user = await userRepository.loginUserByEmail(email, password);
+      const user = await userRepo.loginUserByEmail(email, password);
+
+      console.log('[LoginScreen] loginUserByEmail result:', user);
 
       if (user) {
+        console.log('[LoginScreen] User retrieved successfully:', {
+          id: user.id,
+          email: user.email,
+          username: user.username,
+          admin: (user as any).admin,
+          hasId: !!user.id,
+          hasEmail: !!user.email,
+        });
+
         // Update user online status
-        await userRepository.updateUserOnlineStatus(user.id, true);
+        console.log('[LoginScreen] Updating user online status to true');
+        await userRepo.updateUserOnlineStatus(user.id, true);
 
-        // Save session
-        localStorage.setItem('isLoggedIn', 'true');
-        localStorage.setItem('userEmail', email);
+        // Create session using SessionManager
+        console.log('[LoginScreen] Creating login session');
+        await SessionManager.createLoginSession(user);
 
-        // Navigate to home
-        navigate(`/home/${email}`, { replace: true });
+        console.log('[LoginScreen] Login successful for user:', user.email);
+
+        // Navigate to main_tabs with userEmail param
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'main_tabs', params: { userEmail: user.email } }],
+        });
       } else {
         setMessage('Sai email hoặc mật khẩu!');
+        console.error('[LoginScreen] Login failed: Invalid credentials - user is null/undefined');
       }
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('[LoginScreen] Login error:', error);
+      console.error('[LoginScreen] Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : 'No stack trace',
+      });
       setMessage('Đã xảy ra lỗi. Vui lòng thử lại.');
     } finally {
       setIsLoading(false);
@@ -90,153 +149,112 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ userRepository }) => {
   // Loading screen while checking session
   if (isCheckingSession) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center">
-          <img
-            src="https://drive.google.com/uc?export=download&id=1QiO2eVlHxojSL5QGsetoQUhBT5aO7Yvm"
-            alt="Logo"
-            className="w-48 h-48 mx-auto mb-4"
+      <SafeAreaView style={styles.centered}>
+        <View style={styles.centeredInner}>
+          <Image
+            source={{ uri: 'https://drive.google.com/uc?export=download&id=1QiO2eVlHxojSL5QGsetoQUhBT5aO7Yvm' }}
+            style={styles.logo}
+            resizeMode="contain"
           />
-          <h1 className="text-5xl font-bold text-green-600">NIHONGO</h1>
-        </div>
-      </div>
+          <Text style={styles.appTitle}>NIHONGO</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <div className="min-h-screen bg-green-50 flex items-center justify-center p-6">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8">
-        {/* Title */}
-        <h1 className="text-3xl font-bold text-green-800 text-center mb-6">
-          Đăng nhập
-        </h1>
+    <SafeAreaView style={styles.screen}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.flex}
+      >
+        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+          <View style={styles.card}>
+            <Text style={styles.title}>Đăng nhập</Text>
 
-        {/* Email Input */}
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Email
-          </label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => {
-              setEmail(e.target.value);
-              setMessage('');
-            }}
-            className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 ${
-              email && !isValidEmail(email)
-                ? 'border-red-500'
-                : 'border-gray-300'
-            }`}
-            placeholder="Nhập email của bạn"
-          />
-          {email && !isValidEmail(email) && (
-            <p className="text-red-500 text-xs mt-1">Email không hợp lệ</p>
-          )}
-        </div>
-
-        {/* Password Input */}
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Mật khẩu
-          </label>
-          <div className="relative">
-            <input
-              type={isPasswordVisible ? 'text' : 'password'}
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                setMessage('');
-              }}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-              placeholder="Nhập mật khẩu"
-            />
-            <button
-              type="button"
-              onClick={() => setIsPasswordVisible(!isPasswordVisible)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-            >
-              {isPasswordVisible ? (
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                  />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                  />
-                </svg>
-              ) : (
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
-                  />
-                </svg>
+            <View style={styles.field}>
+              <Text style={styles.label}>Email</Text>
+              <TextInput
+                value={email}
+                onChangeText={(text) => { setEmail(text); setMessage(''); }}
+                placeholder="Nhập email của bạn"
+                style={[styles.input, email && !isValidEmail(email) ? styles.inputError : undefined]}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              {email && !isValidEmail(email) && (
+                <Text style={styles.errorText}>Email không hợp lệ</Text>
               )}
-            </button>
-          </div>
-        </div>
+            </View>
 
-        {/* Login Button */}
-        <button
-          onClick={handleLogin}
-          disabled={isLoading}
-          className={`w-full py-3 rounded-lg font-medium text-white transition ${
-            isLoading
-              ? 'bg-gray-400 cursor-not-allowed'
-              : 'bg-green-700 hover:bg-green-800'
-          }`}
-        >
-          {isLoading ? 'Đang đăng nhập...' : 'Đăng nhập'}
-        </button>
+            <View style={styles.field}>
+              <Text style={styles.label}>Mật khẩu</Text>
+              <View style={styles.passwordRow}>
+                <TextInput
+                  value={password}
+                  onChangeText={(text) => { setPassword(text); setMessage(''); }}
+                  placeholder="Nhập mật khẩu"
+                  secureTextEntry={!isPasswordVisible}
+                  style={styles.input}
+                />
+                <TouchableOpacity onPress={() => setIsPasswordVisible(!isPasswordVisible)} style={styles.showButton}>
+                  <Text style={styles.showButtonText}>{isPasswordVisible ? 'Ẩn' : 'Hiện'}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
 
-        {/* Register Link */}
-        <div className="text-center mt-4">
-          <button
-            onClick={() => navigate('/register')}
-            className="text-green-800 hover:text-green-600 font-medium"
-          >
-            Chưa có tài khoản? Đăng ký
-          </button>
-        </div>
+            <TouchableOpacity onPress={handleLogin} disabled={isLoading} style={[styles.loginButton, isLoading ? styles.buttonDisabled : undefined]}>
+              {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.loginButtonText}>Đăng nhập</Text>}
+            </TouchableOpacity>
 
-        {/* Admin Login Link */}
-        <div className="text-center mt-2">
-          <button
-            onClick={() => navigate('/admin-login')}
-            className="text-gray-500 hover:text-gray-700 text-sm"
-          >
-            Đăng nhập với tư cách Admin
-          </button>
-        </div>
+            <View style={styles.linksRow}>
+              <TouchableOpacity onPress={() => navigation.navigate('register')}>
+                <Text style={styles.linkText}>Chưa có tài khoản? Đăng ký</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => navigation.navigate('admin_login')}>
+                <Text style={styles.smallLink}>Đăng nhập với tư cách Admin</Text>
+              </TouchableOpacity>
+            </View>
 
-        {/* Error Message */}
-        {message && (
-          <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-red-700 text-sm text-center">{message}</p>
-          </div>
-        )}
-      </div>
-    </div>
+            {message ? (
+              <View style={styles.errorBox}>
+                <Text style={styles.errorBoxText}>{message}</Text>
+              </View>
+            ) : null}
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
+
+const styles = StyleSheet.create({
+  flex: { flex: 1 },
+  screen: { flex: 1, backgroundColor: '#ecfdf5' },
+  centered: { flex: 1, backgroundColor: '#fff' },
+  centeredInner: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  logo: { width: 160, height: 160, marginBottom: 12 },
+  appTitle: { fontSize: 36, fontWeight: '700', color: '#16a34a' },
+  container: { flexGrow: 1, justifyContent: 'center', padding: 24 },
+  card: { backgroundColor: '#fff', borderRadius: 16, padding: 20, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
+  title: { fontSize: 22, fontWeight: '700', color: '#065f46', textAlign: 'center', marginBottom: 18 },
+  field: { marginBottom: 12 },
+  label: { fontSize: 14, color: '#374151', marginBottom: 6 },
+  input: { borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, backgroundColor: '#fff' },
+  inputError: { borderColor: '#ef4444' },
+  errorText: { color: '#ef4444', fontSize: 12, marginTop: 6 },
+  passwordRow: { flexDirection: 'row', alignItems: 'center' },
+  showButton: { marginLeft: 8, paddingHorizontal: 8, paddingVertical: 6 },
+  showButtonText: { color: '#065f46', fontWeight: '600' },
+  loginButton: { backgroundColor: '#065f46', paddingVertical: 12, borderRadius: 10, alignItems: 'center', marginTop: 8 },
+  loginButtonText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  buttonDisabled: { backgroundColor: '#9ca3af' },
+  linksRow: { marginTop: 12, alignItems: 'center' },
+  linkText: { color: '#065f46', fontWeight: '600' },
+  smallLink: { color: '#6b7280', marginTop: 6 },
+  errorBox: { marginTop: 12, backgroundColor: '#fff7f7', borderColor: '#fee2e2', borderWidth: 1, padding: 10, borderRadius: 8 },
+  errorBoxText: { color: '#b91c1c', textAlign: 'center' },
+});
 
 export default LoginScreen;

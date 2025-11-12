@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { SafeAreaView, View, Text, Image, TextInput, TouchableOpacity, ScrollView, Modal, StyleSheet } from 'react-native';
 
 interface User {
   id: string;
@@ -31,7 +32,6 @@ const ProfileScreen: React.FC = () => {
   const [showVipDialog, setShowVipDialog] = useState(false);
 
   useEffect(() => {
-    // Mock data
     const mockUser: User = {
       id: '1',
       username: 'Học viên',
@@ -82,111 +82,59 @@ const ProfileScreen: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-medium">👋 こんにちわ {user?.username} さん</h1>
-            {user?.vip && <p className="text-sm text-yellow-600">⭐ VIP です!</p>}
-          </div>
-          <div className="flex gap-2">
-            {isEditMode ? (
-              <>
-                <button
-                  onClick={handleCancel}
-                  className="p-2 hover:bg-gray-100 rounded-full"
-                >
-                  ✕
-                </button>
-                <button
-                  onClick={handleSave}
-                  className="p-2 hover:bg-gray-100 rounded-full"
-                >
-                  ✓
-                </button>
-              </>
-            ) : (
-              <>
-                <button className="p-2 hover:bg-gray-100 rounded-full">👥</button>
-                <button
-                  onClick={() => setIsEditMode(true)}
-                  className="p-2 hover:bg-gray-100 rounded-full"
-                >
-                  ✏️
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      </header>
-
-      {/* Content */}
-      <main className="max-w-3xl mx-auto px-4 py-6 space-y-6">
-        {/* Profile Image */}
-        <div className="flex justify-center">
-          <div className="relative">
-            <img
-              src={user?.imageUrl}
-              alt="Profile"
-              className="w-32 h-32 rounded-full shadow-lg"
-            />
-            {isEditMode && (
-              <button className="absolute bottom-0 right-0 bg-green-600 text-white p-2 rounded-full shadow-lg">
-                ✏️
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* User Info */}
-        <div className="bg-white rounded-xl shadow-md p-6 space-y-4">
+    <SafeAreaView style={styles.screen}>
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.greeting}>👋 こんにちわ {user?.username} さん</Text>
+          {user?.vip && <Text style={styles.vipBadge}>⭐ VIP です!</Text>}
+        </View>
+        <View style={styles.headerActions}>
           {isEditMode ? (
             <>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
-                <input
-                  type="text"
-                  value={editedUsername}
-                  onChange={(e) => setEditedUsername(e.target.value)}
-                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                />
-              </div>
+              <TouchableOpacity onPress={handleCancel} style={styles.iconBtn}><Text>✕</Text></TouchableOpacity>
+              <TouchableOpacity onPress={handleSave} style={styles.iconBtn}><Text>✓</Text></TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <TouchableOpacity style={styles.iconBtn}><Text>👥</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => setIsEditMode(true)} style={styles.iconBtn}><Text>✏️</Text></TouchableOpacity>
+            </>
+          )}
+        </View>
+      </View>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                <input
-                  type="email"
-                  value={user?.email}
-                  disabled
-                  className="w-full px-4 py-2 border rounded-lg bg-gray-100"
-                />
-              </div>
+      <ScrollView contentContainerStyle={styles.container}>
+        <View style={styles.centered}>
+          <View style={styles.avatarWrap}>
+            <Image source={{ uri: user?.imageUrl }} style={styles.avatar} />
+            {isEditMode && (
+              <TouchableOpacity style={styles.editAvatarBtn}><Text style={{ color: 'white' }}>✏️</Text></TouchableOpacity>
+            )}
+          </View>
+        </View>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">JLPT Level</label>
-                <select
-                  value={editedJlptLevel || ''}
-                  onChange={(e) => setEditedJlptLevel(e.target.value ? Number(e.target.value) : null)}
-                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                >
-                  <option value="">None</option>
-                  {[5, 4, 3, 2, 1].map(level => (
-                    <option key={level} value={level}>N{level}</option>
-                  ))}
-                </select>
-              </div>
+        <View style={styles.card}>
+          {isEditMode ? (
+            <>
+              <View style={styles.formRow}>
+                <Text style={styles.label}>Username</Text>
+                <TextInput value={editedUsername} onChangeText={setEditedUsername} style={styles.input} />
+              </View>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Months of Study</label>
-                <input
-                  type="number"
-                  value={editedStudyMonths || ''}
-                  onChange={(e) => setEditedStudyMonths(e.target.value ? Number(e.target.value) : null)}
-                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                  placeholder="Enter months"
-                />
-              </div>
+              <View style={styles.formRow}>
+                <Text style={styles.label}>Email</Text>
+                <TextInput value={user?.email} editable={false} style={[styles.input, styles.inputDisabled]} />
+              </View>
+
+              <View style={styles.formRow}>
+                <Text style={styles.label}>JLPT Level</Text>
+                <TextInput value={editedJlptLevel?.toString() || ''} onChangeText={t => setEditedJlptLevel(t ? Number(t) : null)} keyboardType="numeric" style={styles.input} />
+              </View>
+
+              <View style={styles.formRow}>
+                <Text style={styles.label}>Months of Study</Text>
+                <TextInput value={editedStudyMonths?.toString() || ''} onChangeText={t => setEditedStudyMonths(t ? Number(t) : null)} keyboardType="numeric" style={styles.input} />
+              </View>
             </>
           ) : (
             <>
@@ -194,184 +142,156 @@ const ProfileScreen: React.FC = () => {
               <InfoRow label="JLPT Level" value={user?.jlptLevel ? `N${user.jlptLevel}` : 'Not set'} icon="⭐" />
               <InfoRow label="Months of Study" value={user?.studyMonths?.toString() || 'Not set'} icon="✓" />
               <InfoRow label="Activity Points" value={user?.activityPoints.toString()} icon="🏆" />
-              <InfoRow
-                label="VIP Status"
-                value={user?.vip ? '⭐ VIP' : 'Standard'}
-                icon="💎"
-                valueColor={user?.vip ? 'text-yellow-600' : 'text-gray-600'}
-              />
+              <InfoRow label="VIP Status" value={user?.vip ? '⭐ VIP' : 'Standard'} icon="💎" />
             </>
           )}
-        </div>
+        </View>
 
-        {/* Progress */}
-        <div>
-          <h2 className="text-xl font-bold mb-4">Your Progress</h2>
+        <View>
+          <Text style={styles.sectionTitle}>Your Progress</Text>
           {userProgress.length === 0 ? (
-            <div className="bg-white rounded-xl shadow-md p-8 text-center">
-              <p className="text-gray-500 mb-4">You haven't joined any courses yet</p>
-              <button className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
-                Browse Courses
-              </button>
-            </div>
+            <View style={[styles.card, styles.centered]}> 
+              <Text style={styles.muted}>You haven't joined any courses yet</Text>
+              <TouchableOpacity style={styles.primaryBtn}><Text style={styles.primaryBtnText}>Browse Courses</Text></TouchableOpacity>
+            </View>
           ) : (
-            <div className="space-y-3">
+            <View>
               {userProgress.map(progress => (
-                <div key={progress.courseId} className="bg-white rounded-xl shadow-md p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-bold">{progress.courseTitle}</h3>
-                    <span className="text-green-600 font-bold">{Math.round(progress.progress * 100)}%</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2 mb-3">
-                    <div
-                      className="bg-green-600 h-2 rounded-full transition-all"
-                      style={{ width: `${progress.progress * 100}%` }}
-                    />
-                  </div>
-                  <div className="flex justify-between text-sm text-gray-500 mb-3">
-                    <span>{progress.passedExercises.length} exercises completed</span>
-                    <span>Last updated: {new Date(progress.lastUpdated).toLocaleDateString('vi-VN')}</span>
-                  </div>
-                  <button className="w-full py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
-                    Continue
-                  </button>
-                </div>
+                <View key={progress.courseId} style={styles.progressCard}>
+                  <View style={styles.progressHeader}>
+                    <Text style={styles.progressTitle}>{progress.courseTitle}</Text>
+                    <Text style={styles.progressPercent}>{Math.round(progress.progress * 100)}%</Text>
+                  </View>
+                  <View style={styles.progressBarBg}><View style={[styles.progressBarFill, { width: `${progress.progress * 100}%`}]} /></View>
+                  <View style={styles.progressMeta}>
+                    <Text style={styles.smallText}>{progress.passedExercises.length} exercises completed</Text>
+                    <Text style={styles.smallText}>Last updated: {new Date(progress.lastUpdated).toLocaleDateString('vi-VN')}</Text>
+                  </View>
+                  <TouchableOpacity style={styles.primaryBtn}><Text style={styles.primaryBtnText}>Continue</Text></TouchableOpacity>
+                </View>
               ))}
-            </div>
+            </View>
           )}
-        </div>
+        </View>
 
-        {/* Actions */}
-        <div className="space-y-3">
-          <button
-            onClick={() => setShowSignOutDialog(true)}
-            className="w-full py-3 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700"
-          >
-            Sign Out
-          </button>
+        <View style={{ marginTop: 12 }}>
+          <TouchableOpacity onPress={() => setShowSignOutDialog(true)} style={[styles.primaryBtn, { backgroundColor: '#dc2626' }]}>
+            <Text style={styles.primaryBtnText}>Sign Out</Text>
+          </TouchableOpacity>
 
           {!user?.vip && (
-            <button
-              onClick={() => setShowVipDialog(true)}
-              className="w-full py-3 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-lg font-semibold hover:shadow-lg"
-            >
-              ⭐ Nâng cấp lên VIP
-            </button>
+            <TouchableOpacity onPress={() => setShowVipDialog(true)} style={[styles.primaryBtn, { backgroundColor: '#f59e0b', marginTop: 8 }]}>
+              <Text style={styles.primaryBtnText}>⭐ Nâng cấp lên VIP</Text>
+            </TouchableOpacity>
           )}
-        </div>
-      </main>
+        </View>
 
-      {/* Sign Out Dialog */}
-      {showSignOutDialog && (
-        <Dialog
-          title="Sign Out"
-          message="Are you sure you want to sign out?"
-          onConfirm={() => console.log('Sign out')}
-          onCancel={() => setShowSignOutDialog(false)}
-        />
-      )}
+      </ScrollView>
 
-      {/* VIP Dialog */}
-      {showVipDialog && (
-        <VipDialog onClose={() => setShowVipDialog(false)} />
-      )}
-    </div>
+      <Modal visible={showSignOutDialog} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Sign Out</Text>
+            <Text style={styles.modalMessage}>Are you sure you want to sign out?</Text>
+            <View style={styles.modalActions}>
+              <TouchableOpacity onPress={() => setShowSignOutDialog(false)} style={styles.modalCancel}><Text>Cancel</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => { console.log('Sign out'); setShowSignOutDialog(false); }} style={styles.modalConfirm}><Text style={{ color: 'white' }}>Confirm</Text></TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={showVipDialog} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { maxWidth: 520, width: '90%' }]}>
+            <Text style={styles.modalTitle}>Nâng cấp lên VIP</Text>
+            <View style={styles.vipBox}>
+              <Text style={styles.vipIcon}>⭐</Text>
+              <Text style={styles.vipPlan}>Gói VIP Premium</Text>
+              <Text style={styles.vipPrice}>100.000 VNĐ / tháng</Text>
+            </View>
+            <View style={{ marginTop: 12 }}>
+              <Text style={{ fontWeight: '700' }}>Quyền lợi thành viên VIP:</Text>
+              <BenefitItem text="Truy cập tất cả khóa học VIP" />
+              <BenefitItem text="Không giới hạn bài tập và flashcards" />
+              <BenefitItem text="Ưu tiên hỗ trợ từ đội ngũ giáo viên" />
+              <BenefitItem text="Huy hiệu VIP độc quyền trên hồ sơ" />
+            </View>
+            <View style={styles.modalActions}>
+              <TouchableOpacity onPress={() => setShowVipDialog(false)} style={styles.modalCancel}><Text>Hủy</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => setShowVipDialog(false)} style={styles.modalConfirm}><Text style={{ color: 'white' }}>Tiếp tục</Text></TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </SafeAreaView>
   );
 };
 
-const InfoRow: React.FC<{
-  label: string;
-  value?: string;
-  icon: string;
-  valueColor?: string;
-}> = ({ label, value, icon, valueColor = 'text-gray-900' }) => {
-  return (
-    <div className="flex items-center gap-3">
-      <span className="text-2xl">{icon}</span>
-      <div className="flex-1">
-        <div className="text-sm text-gray-500">{label}</div>
-        <div className={`font-medium ${valueColor}`}>{value}</div>
-      </div>
-    </div>
-  );
-};
+const InfoRow: React.FC<{ label: string; value?: string; icon: string; }> = ({ label, value, icon }) => (
+  <View style={styles.infoRow}>
+    <Text style={styles.infoIcon}>{icon}</Text>
+    <View style={{ flex: 1 }}>
+      <Text style={styles.infoLabel}>{label}</Text>
+      <Text style={styles.infoValue}>{value}</Text>
+    </View>
+  </View>
+);
 
-const Dialog: React.FC<{
-  title: string;
-  message: string;
-  onConfirm: () => void;
-  onCancel: () => void;
-}> = ({ title, message, onConfirm, onCancel }) => {
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl max-w-sm w-full p-6">
-        <h2 className="text-xl font-bold mb-3">{title}</h2>
-        <p className="text-gray-600 mb-6">{message}</p>
-        <div className="flex gap-3">
-          <button
-            onClick={onCancel}
-            className="flex-1 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onConfirm}
-            className="flex-1 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-          >
-            Confirm
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
+const BenefitItem: React.FC<{ text: string }> = ({ text }) => (
+  <View style={styles.benefitRow}>
+    <Text style={styles.benefitTick}>✓</Text>
+    <Text style={styles.benefitText}>{text}</Text>
+  </View>
+);
 
-const VipDialog: React.FC<{ onClose: () => void }> = ({ onClose }) => {
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-auto">
-      <div className="bg-white rounded-2xl max-w-md w-full p-6 my-8">
-        <h2 className="text-2xl font-bold mb-4">Nâng cấp lên VIP</h2>
-
-        <div className="bg-gradient-to-r from-blue-900 to-blue-600 rounded-xl p-6 text-white text-center mb-6">
-          <div className="text-4xl mb-2">⭐</div>
-          <div className="text-xl font-bold">Gói VIP Premium</div>
-          <div className="text-yellow-300 font-bold">100.000 VNĐ / tháng</div>
-        </div>
-
-        <div className="space-y-3 mb-6">
-          <h3 className="font-bold">Quyền lợi thành viên VIP:</h3>
-          <BenefitItem text="Truy cập tất cả khóa học VIP" />
-          <BenefitItem text="Không giới hạn bài tập và flashcards" />
-          <BenefitItem text="Ưu tiên hỗ trợ từ đội ngũ giáo viên" />
-          <BenefitItem text="Huy hiệu VIP độc quyền trên hồ sơ" />
-        </div>
-
-        <div className="flex gap-3">
-          <button
-            onClick={onClose}
-            className="flex-1 py-3 border border-gray-300 rounded-lg hover:bg-gray-50"
-          >
-            Hủy
-          </button>
-          <button
-            onClick={onClose}
-            className="flex-1 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-bold"
-          >
-            Tiếp tục
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const BenefitItem: React.FC<{ text: string }> = ({ text }) => {
-  return (
-    <div className="flex items-center gap-2">
-      <span className="text-green-600">✓</span>
-      <span className="text-sm">{text}</span>
-    </div>
-  );
-};
+const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: '#f8fafc' },
+  header: { backgroundColor: '#16a34a', padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  greeting: { color: 'white', fontSize: 16, fontWeight: '700' },
+  vipBadge: { color: '#fbbf24' },
+  headerActions: { flexDirection: 'row', gap: 8 },
+  iconBtn: { padding: 8 },
+  container: { padding: 16, paddingBottom: 48 },
+  centered: { alignItems: 'center' },
+  avatarWrap: { position: 'relative' },
+  avatar: { width: 96, height: 96, borderRadius: 48, backgroundColor: '#e5e7eb' },
+  editAvatarBtn: { position: 'absolute', right: -4, bottom: -4, backgroundColor: '#16a34a', padding: 8, borderRadius: 20 },
+  card: { backgroundColor: 'white', borderRadius: 12, padding: 16, marginVertical: 12 },
+  formRow: { marginBottom: 12 },
+  label: { fontWeight: '600', marginBottom: 6 },
+  input: { borderWidth: 1, borderColor: '#e5e7eb', padding: 10, borderRadius: 8 },
+  inputDisabled: { backgroundColor: '#f3f4f6' },
+  sectionTitle: { fontSize: 18, fontWeight: '700', marginTop: 8 },
+  muted: { color: '#6b7280', marginBottom: 8 },
+  primaryBtn: { backgroundColor: '#16a34a', padding: 12, borderRadius: 10, alignItems: 'center', marginTop: 8 },
+  primaryBtnText: { color: 'white', fontWeight: '700' },
+  progressCard: { backgroundColor: 'white', borderRadius: 12, padding: 12, marginBottom: 12 },
+  progressHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  progressTitle: { fontWeight: '700' },
+  progressPercent: { color: '#16a34a', fontWeight: '700' },
+  progressBarBg: { height: 8, backgroundColor: '#e5e7eb', borderRadius: 8, overflow: 'hidden', marginBottom: 8 },
+  progressBarFill: { height: 8, backgroundColor: '#16a34a' },
+  progressMeta: { flexDirection: 'row', justifyContent: 'space-between' },
+  smallText: { color: '#6b7280' },
+  infoRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
+  infoIcon: { fontSize: 20 },
+  infoLabel: { color: '#6b7280' },
+  infoValue: { fontWeight: '700' },
+  benefitRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
+  benefitTick: { color: '#16a34a' },
+  benefitText: { fontSize: 14 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 16 },
+  modalCard: { backgroundColor: 'white', borderRadius: 12, padding: 16, width: '100%', maxWidth: 420 },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: '#16a34a' },
+  modalMessage: { marginTop: 8, color: '#6b7280' },
+  modalActions: { flexDirection: 'row', marginTop: 12 },
+  modalCancel: { flex: 1, padding: 12, alignItems: 'center', borderRadius: 8, marginRight: 8, borderWidth: 1, borderColor: '#e5e7eb' },
+  modalConfirm: { flex: 1, padding: 12, alignItems: 'center', borderRadius: 8, backgroundColor: '#16a34a' },
+  vipBox: { backgroundColor: '#0ea5e9', borderRadius: 12, padding: 12, alignItems: 'center', marginTop: 12 },
+  vipIcon: { fontSize: 28 },
+  vipPlan: { color: 'white', fontWeight: '700', marginTop: 6 },
+  vipPrice: { color: '#fde68a', fontWeight: '700', marginTop: 2 }
+});
 
 export default ProfileScreen;

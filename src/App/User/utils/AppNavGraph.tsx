@@ -1,67 +1,75 @@
-// AppNavGraph.tsx - Navigation graph cho ứng dụng
+// AppNavGraph.tsx - Navigation graph with Bottom Tab Navigator
 
 import React from 'react';
 import { Text } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import messaging from '@react-native-firebase/messaging';
 
 // Import repositories
-import { UserRepository, CourseRepository, LessonRepository, ExerciseRepository } from './repositories';
+import { UserRepository, CourseRepository, LessonRepository, ExerciseRepository } from '../data/repository/index';
 import { NavigationRoutes } from './NavigationRoutes';
-import { Exercise } from './types';
+import { BottomNavItem } from '../ui/components/BottomNavItem';
+import { Exercise } from '../data/models/Exercise';
 
-// Import screens (bạn cần tạo các file screen này)
-import LoginScreen from './screens/LoginScreen';
-import RegisterScreen from './screens/RegisterScreen';
-import OTPScreen from './screens/OTPScreen';
-import HomeScreen from './screens/HomeScreen';
-import CoursesScreen from './screens/CoursesScreen';
-import ProfileScreen from './screens/ProfileScreen';
-import CommunityScreen from './screens/CommunityScreen';
-import CourseDetailScreen from './screens/CourseDetailScreen';
-import LessonsScreen from './screens/LessonsScreen';
-import ExerciseScreen from './screens/ExerciseScreen';
-import QuizScreen from './screens/QuizScreen';
-import FlashcardScreen from './screens/FlashcardScreen';
-import GroupChatScreen from './screens/GroupChatScreen';
-import PrivateChatScreen from './screens/PrivateChatScreen';
-import DiscussionChatScreen from './screens/DiscussionChatScreen';
-import CreateDiscussionScreen from './screens/CreateDiscussionScreen';
-import AdminLoginScreen from './screens/AdminLoginScreen';
-import MainPage from './screens/MainPage';
-import CoursePage from './screens/CoursePage';
-import VipRequestPage from './screens/VipRequestPage';
+// Import screens - Login screens
+import LoginScreen from '../ui/screens/login/LoginScreen';
+import RegisterScreen from '../ui/screens/login/RegisterScreen';
+import OTPScreen from '../ui/screens/login/OTPScreen';
+
+// Import screens - Homepage screens
+import HomeScreen from '../ui/screens/homepage/HomeScreen';
+import CoursesScreen from '../ui/screens/homepage/CoursesScreen';
+import ProfileScreen from '../ui/screens/homepage/ProfileScreen';
+import CommunityScreen from '../ui/screens/homepage/CommunityScreenFull';
+import LessonsScreen from '../ui/screens/homepage/LessonsScreen';
+import ExerciseScreen from '../ui/screens/homepage/ExerciseScreen';
+import QuizScreen from '../ui/screens/homepage/QuizScreen';
+import FlashcardScreen from '../ui/screens/homepage/FlashcardScreen';
+
+// Import screens - Chat screens
+import GroupChatScreen from '../ui/screens/chat/GroupChatScreen';
+import PrivateChatScreen from '../ui/screens/chat/PrivateChatScreen';
+import DiscussionChatScreen from '../ui/screens/chat/DiscussionChatScreen';
+import CreateDiscussionScreen from '../ui/screens/chat/CreateDiscussionScreen';
+
+// Import screens - Admin screens
+import AdminLoginScreen from '../../Admin/Admin/AdminLoginScreen';
+import MainPage from '../../Admin/Admin/ui/MainPage';
+import CoursePage from '../../Admin/Admin/ui/CoursePage';
+import VipRequestPage from '../../Admin/ui/VipRequestPage';
 
 // Define param list
 export type RootStackParamList = {
   [NavigationRoutes.LOGIN]: undefined;
   [NavigationRoutes.REGISTER]: undefined;
-  otp_screen: { expectedOtp: string; user_email: string };
-  'home/{user_email}': { user_email: string };
-  'courses/{user_email}': { user_email: string };
-  'profile/{user_email}': { user_email: string };
-  'community/{user_email}': { user_email: string; tab?: number };
-  'courses/{courseId}/{user_email}': { courseId: string; user_email: string };
-  'lessons/{courseId}/{user_email}': { courseId: string; user_email: string };
-  'exercise/{courseId}/{lessonId}/{sublessonId}/{user_email}': {
+  otp_screen: { expectedOtp: string; userEmail: string };
+  main_tabs: { userEmail: string };
+  'home/{userEmail}': { userEmail: string };
+  'courses/{userEmail}': { userEmail: string };
+  'profile/{userEmail}': { userEmail: string };
+  'community/{userEmail}': { userEmail: string; tab?: number };
+  'courses/{courseId}/{userEmail}': { courseId: string; userEmail: string };
+  'lessons/{courseId}/{userEmail}': { courseId: string; userEmail: string };
+  'exercise/{courseId}/{lessonId}/{sublessonId}/{userEmail}': {
     courseId: string;
     lessonId: string;
     sublessonId: string;
-    user_email: string;
+    userEmail: string;
   };
-  'quiz_screen/{user_email}/{courseId}/{lessonId}': {
-    user_email: string;
+  'quiz_screen/{userEmail}/{courseId}/{lessonId}': {
+    userEmail: string;
     courseId: string;
     lessonId: string;
     quizList: Exercise[];
   };
-  'vocabulary/{user_email}': { user_email: string; tab?: string };
-  'group_chat/{groupId}/{user_email}': { groupId: string; user_email: string };
-  'private_chat/{partnerId}/{user_email}': { partnerId: string; user_email: string };
-  'discussion_chat/{discussionId}/{user_email}': { discussionId: string; user_email: string };
-  'create_discussion/{user_email}': { user_email: string };
+  'vocabulary/{userEmail}': { userEmail: string; tab?: string };
+  'group_chat/{groupId}/{userEmail}': { groupId: string; userEmail: string };
+  'private_chat/{partnerUserId}/{userEmail}': { partnerUserId: string; userEmail: string };
+  'discussion_chat/{discussionId}/{userEmail}': { discussionId: string; userEmail: string };
+  'create_discussion/{userEmail}': { userEmail: string };
   course_page: undefined;
   vipRequestPage: undefined;
   admin_login: undefined;
@@ -69,6 +77,7 @@ export type RootStackParamList = {
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
+const Tab = createBottomTabNavigator();
 
 interface AppNavGraphProps {
   userRepo: UserRepository;
@@ -76,14 +85,287 @@ interface AppNavGraphProps {
   lessonRepo: LessonRepository;
   exerciseRepo: ExerciseRepository;
   startDestination?: string;
+  initialUserEmail?: string;
 }
 
+/**
+ * Bottom Tab Navigator - Main app screens (Home, Courses, Community, Profile)
+ */
+const BottomTabNavigator: React.FC<{
+  userRepo: UserRepository;
+  courseRepo: CourseRepository;
+  lessonRepo: LessonRepository;
+  exerciseRepo: ExerciseRepository;
+  userEmail: string;
+}> = ({ userRepo, courseRepo, lessonRepo, exerciseRepo, userEmail }) => {
+  return (
+    <Tab.Navigator
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: '#16a34a',
+        tabBarInactiveTintColor: '#9ca3af',
+      }}
+    >
+      {/* Home Tab */}
+      <Tab.Screen
+        name={BottomNavItem.Home.route as any}
+        options={{
+          tabBarLabel: BottomNavItem.Home.label,
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>🏠</Text>,
+        }}
+      >
+        {(props) => (
+          <Stack.Navigator
+            screenOptions={{
+              headerShown: false,
+            }}
+          >
+            <Stack.Screen
+              name="home/{userEmail}"
+              options={{ title: 'Trang chủ' }}
+            >
+              {(innerProps) => (
+                <HomeScreen
+                  {...innerProps}
+                  route={{ ...innerProps.route, params: { userEmail } }}
+                  userRepo={userRepo}
+                  courseRepo={courseRepo}
+                />
+              )}
+            </Stack.Screen>
+            {/* Nested screens from Home tab */}
+            <Stack.Screen
+              name="courses/{courseId}/{userEmail}"
+              options={{ title: 'Chi tiết khóa học' }}
+            >
+              {(innerProps) => (
+                <LessonsScreen
+                  {...innerProps}
+                  courseRepo={courseRepo}
+                  lessonRepo={lessonRepo}
+                  userRepo={userRepo}
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen
+              name="lessons/{courseId}/{userEmail}"
+              options={{ title: 'Bài học' }}
+            >
+              {(innerProps) => (
+                <LessonsScreen
+                  {...innerProps}
+                  courseRepo={courseRepo}
+                  lessonRepo={lessonRepo}
+                  userRepo={userRepo}
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen
+              name="exercise/{courseId}/{lessonId}/{sublessonId}/{userEmail}"
+              options={{ title: 'Bài tập' }}
+            >
+              {(innerProps) => (
+                <ExerciseScreen {...innerProps} />
+              )}
+            </Stack.Screen>
+            <Stack.Screen
+              name="quiz_screen/{userEmail}/{courseId}/{lessonId}"
+              options={{ title: 'Quiz' }}
+            >
+              {(innerProps) => (
+                <QuizScreen {...innerProps} />
+              )}
+            </Stack.Screen>
+            <Stack.Screen
+              name="vocabulary/{userEmail}"
+              options={{ title: 'Flashcard' }}
+            >
+              {(innerProps) => (
+                <FlashcardScreen {...innerProps} />
+              )}
+            </Stack.Screen>
+          </Stack.Navigator>
+        )}
+      </Tab.Screen>
+
+      {/* Courses Tab */}
+      <Tab.Screen
+        name={BottomNavItem.Courses.route as any}
+        options={{
+          tabBarLabel: BottomNavItem.Courses.label,
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>📚</Text>,
+        }}
+      >
+        {(props) => (
+          <Stack.Navigator
+            screenOptions={{
+              headerShown: false,
+            }}
+          >
+            <Stack.Screen
+              name="courses/{userEmail}"
+              options={{ title: 'Khóa học' }}
+            >
+              {(innerProps) => (
+                <CoursesScreen
+                  {...innerProps}
+                  route={{ ...innerProps.route, params: { userEmail } }}
+                  courseRepo={courseRepo}
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen
+              name="courses/{courseId}/{userEmail}"
+              options={{ title: 'Chi tiết khóa học' }}
+            >
+              {(innerProps) => (
+                <LessonsScreen
+                  {...innerProps}
+                  courseRepo={courseRepo}
+                  lessonRepo={lessonRepo}
+                  userRepo={userRepo}
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen
+              name="lessons/{courseId}/{userEmail}"
+              options={{ title: 'Bài học' }}
+            >
+              {(innerProps) => (
+                <LessonsScreen
+                  {...innerProps}
+                  courseRepo={courseRepo}
+                  lessonRepo={lessonRepo}
+                  userRepo={userRepo}
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen
+              name="exercise/{courseId}/{lessonId}/{sublessonId}/{userEmail}"
+              options={{ title: 'Bài tập' }}
+            >
+              {(innerProps) => (
+                <ExerciseScreen {...innerProps} />
+              )}
+            </Stack.Screen>
+          </Stack.Navigator>
+        )}
+      </Tab.Screen>
+
+      {/* Community Tab */}
+      <Tab.Screen
+        name={BottomNavItem.Community.route as any}
+        options={{
+          tabBarLabel: BottomNavItem.Community.label,
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>👥</Text>,
+        }}
+      >
+        {(props) => (
+          <Stack.Navigator
+            screenOptions={{
+              headerShown: false,
+            }}
+          >
+            <Stack.Screen
+              name="community/{userEmail}"
+              options={{ title: 'Cộng đồng' }}
+            >
+              {(innerProps) => (
+                <CommunityScreen
+                  {...innerProps}
+                  route={{ ...innerProps.route, params: { userEmail } }}
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen
+              name="group_chat/{groupId}/{userEmail}"
+              options={{ title: 'Nhóm chat' }}
+            >
+              {(innerProps) => (
+                <GroupChatScreen
+                  {...innerProps}
+                  userRepository={userRepo}
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen
+              name="private_chat/{partnerUserId}/{userEmail}"
+              options={{ title: 'Chat riêng' }}
+            >
+              {(innerProps) => (
+                <PrivateChatScreen
+                  {...innerProps}
+                  userRepository={userRepo}
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen
+              name="discussion_chat/{discussionId}/{userEmail}"
+              options={{ title: 'Thảo luận' }}
+            >
+              {(innerProps) => (
+                <DiscussionChatScreen
+                  {...innerProps}
+                  userRepository={userRepo}
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen
+              name="create_discussion/{userEmail}"
+              options={{ title: 'Tạo thảo luận' }}
+            >
+              {(innerProps) => (
+                <CreateDiscussionScreen
+                  {...innerProps}
+                  userRepository={userRepo}
+                />
+              )}
+            </Stack.Screen>
+          </Stack.Navigator>
+        )}
+      </Tab.Screen>
+
+      {/* Profile Tab */}
+      <Tab.Screen
+        name={BottomNavItem.Profile.route as any}
+        options={{
+          tabBarLabel: BottomNavItem.Profile.label,
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>👤</Text>,
+        }}
+      >
+        {(props) => (
+          <Stack.Navigator
+            screenOptions={{
+              headerShown: false,
+            }}
+          >
+            <Stack.Screen
+              name="profile/{userEmail}"
+              options={{ title: 'Hồ sơ' }}
+            >
+              {(innerProps) => (
+                <ProfileScreen
+                  {...innerProps}
+                  route={{ ...innerProps.route, params: { userEmail } }}
+                />
+              )}
+            </Stack.Screen>
+          </Stack.Navigator>
+        )}
+      </Tab.Screen>
+    </Tab.Navigator>
+  );
+};
+
+/**
+ * Main App Navigator
+ */
 const AppNavGraph: React.FC<AppNavGraphProps> = ({
   userRepo,
   courseRepo,
   lessonRepo,
   exerciseRepo,
-  startDestination = NavigationRoutes.LOGIN
+  startDestination = NavigationRoutes.LOGIN,
 }) => {
   return (
     <NavigationContainer>
@@ -94,172 +376,62 @@ const AppNavGraph: React.FC<AppNavGraphProps> = ({
         }}
       >
         {/* Auth Screens */}
-        <Stack.Screen name={NavigationRoutes.LOGIN}>
+        <Stack.Screen
+          name={NavigationRoutes.LOGIN}
+          options={{ title: 'Đăng nhập' }}
+        >
           {(props) => <LoginScreen {...props} userRepo={userRepo} />}
         </Stack.Screen>
 
-        <Stack.Screen name={NavigationRoutes.REGISTER}>
-          {(props) => <RegisterScreen {...props} userRepo={userRepo} />}
+        <Stack.Screen
+          name={NavigationRoutes.REGISTER}
+          options={{ title: 'Đăng ký' }}
+        >
+          {(props) => <RegisterScreen {...props} userRepository={userRepo} />}
         </Stack.Screen>
 
         <Stack.Screen
           name="otp_screen"
-          component={OTPScreen}
-        />
-
-        {/* Bottom Nav Screens */}
-        <Stack.Screen name="home/{user_email}">
-          {(props) => (
-            <HomeScreen
-              {...props}
-              userRepo={userRepo}
-              courseRepo={courseRepo}
-            />
-          )}
+          options={{ title: 'Xác thực OTP' }}
+        >
+          {(props) => <OTPScreen {...props} />}
         </Stack.Screen>
 
-        <Stack.Screen name="courses/{user_email}">
-          {(props) => (
-            <CoursesScreen
-              {...props}
-              courseRepo={courseRepo}
-            />
-          )}
-        </Stack.Screen>
-
-        <Stack.Screen name="profile/{user_email}">
-          {(props) => (
-            <ProfileScreen
-              {...props}
-              userRepository={userRepo}
-              courseRepository={courseRepo}
-              onSignOut={async () => {
-                const userEmail = props.route.params?.user_email;
-                if (userEmail) {
-                  const currentUser = await userRepo.getUserByEmail(userEmail);
-                  if (currentUser) {
-                    try {
-                      await messaging().unsubscribeFromTopic(currentUser.id);
-                      console.log('Unsubscribed from topic');
-                    } catch (error) {
-                      console.log('Unsubscription failed', error);
-                    }
-                  }
-                }
-                props.navigation.reset({
-                  index: 0,
-                  routes: [{ name: NavigationRoutes.LOGIN }],
-                });
-              }}
-            />
-          )}
-        </Stack.Screen>
-
-        <Stack.Screen name="community/{user_email}">
-          {(props) => (
-            <CommunityScreen
-              {...props}
-              userRepo={userRepo}
-            />
-          )}
-        </Stack.Screen>
-
-        {/* Course Screens */}
-        <Stack.Screen name="courses/{courseId}/{user_email}">
+        {/* Bottom Tab Navigator - Main App */}
+        <Stack.Screen
+          name="main_tabs"
+          options={{ title: 'Main' }}
+        >
           {(props) => {
-            const courseId = props.route.params?.courseId;
-            if (!courseId) {
-              return <InvalidCourseScreen />;
-            }
+            const userEmail = props.route.params?.userEmail || '';
             return (
-              <CourseDetailScreen
-                {...props}
-                courseRepo={courseRepo}
+              <BottomTabNavigator
+                userEmail={userEmail}
                 userRepo={userRepo}
+                courseRepo={courseRepo}
                 lessonRepo={lessonRepo}
-              />
-            );
-          }}
-        </Stack.Screen>
-
-        <Stack.Screen name="lessons/{courseId}/{user_email}">
-          {(props) => (
-            <LessonsScreen
-              {...props}
-              courseRepo={courseRepo}
-              lessonRepo={lessonRepo}
-              userRepo={userRepo}
-            />
-          )}
-        </Stack.Screen>
-
-        <Stack.Screen name="exercise/{courseId}/{lessonId}/{sublessonId}/{user_email}">
-          {(props) => {
-            const { lessonId, sublessonId } = props.route.params || {};
-            if (!lessonId || !sublessonId) {
-              return <Text>Không tìm thấy bài tập, vui lòng thử lại.</Text>;
-            }
-            return (
-              <ExerciseScreen
-                {...props}
                 exerciseRepo={exerciseRepo}
               />
             );
           }}
         </Stack.Screen>
 
-        <Stack.Screen
-          name="quiz_screen/{user_email}/{courseId}/{lessonId}"
-          component={QuizScreen}
-        />
-
-        <Stack.Screen
-          name="vocabulary/{user_email}"
-          component={FlashcardScreen}
-        />
-
-        {/* Chat Screens */}
-        <Stack.Screen name="group_chat/{groupId}/{user_email}">
-          {(props) => (
-            <GroupChatScreen
-              {...props}
-              userRepository={userRepo}
-            />
-          )}
-        </Stack.Screen>
-
-        <Stack.Screen name="private_chat/{partnerId}/{user_email}">
-          {(props) => (
-            <PrivateChatScreen
-              {...props}
-              userRepository={userRepo}
-            />
-          )}
-        </Stack.Screen>
-
-        <Stack.Screen name="discussion_chat/{discussionId}/{user_email}">
-          {(props) => (
-            <DiscussionChatScreen
-              {...props}
-              userRepository={userRepo}
-            />
-          )}
-        </Stack.Screen>
-
-        <Stack.Screen name="create_discussion/{user_email}">
-          {(props) => (
-            <CreateDiscussionScreen
-              {...props}
-              userRepository={userRepo}
-            />
-          )}
-        </Stack.Screen>
-
         {/* Admin Screens */}
-        <Stack.Screen name="course_page" component={CoursePage} />
-        <Stack.Screen name="vipRequestPage" component={VipRequestPage} />
-        <Stack.Screen name="admin_login" component={AdminLoginScreen} />
-        <Stack.Screen name="MainPage" component={MainPage} />
+        <Stack.Screen name="course_page" options={{ title: 'Quản lý khóa học' }}>
+          {(props) => <CoursePage {...props} />}
+        </Stack.Screen>
+
+        <Stack.Screen name="vipRequestPage" options={{ title: 'Yêu cầu VIP' }}>
+          {(props) => <VipRequestPage {...props} navController={props.navigation} />}
+        </Stack.Screen>
+
+        <Stack.Screen name="admin_login" options={{ title: 'Đăng nhập Admin' }}>
+          {(props) => <AdminLoginScreen {...props} navController={props.navigation} />}
+        </Stack.Screen>
+
+        <Stack.Screen name="MainPage" options={{ title: 'Trang Admin' }}>
+          {(props) => <MainPage {...props} navController={props.navigation} />}
+        </Stack.Screen>
       </Stack.Navigator>
     </NavigationContainer>
   );

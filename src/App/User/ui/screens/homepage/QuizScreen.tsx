@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { View, Text, SafeAreaView, ActivityIndicator, ScrollView, Image, TouchableOpacity, StyleSheet } from 'react-native';
 
 interface Exercise {
   id: string;
@@ -20,7 +21,6 @@ const QuizScreen: React.FC = () => {
   const [showConfetti, setShowConfetti] = useState(false);
 
   useEffect(() => {
-    // Mock data
     setExercises([
       {
         id: '1',
@@ -44,27 +44,22 @@ const QuizScreen: React.FC = () => {
   }, []);
 
   const currentExercise = exercises[currentIndex];
-  const progress = ((currentIndex + 1) / exercises.length) * 100;
+  const progress = exercises.length ? ((currentIndex + 1) / exercises.length) * 100 : 0;
 
   const handleWordSelect = (word: string) => {
-    if (!selectedWords.includes(word)) {
-      setSelectedWords([...selectedWords, word]);
-    }
+    if (!selectedWords.includes(word)) setSelectedWords(prev => [...prev, word]);
   };
 
-  const handleWordRemove = (index: number) => {
-    setSelectedWords(selectedWords.filter((_, i) => i !== index));
-  };
+  const handleWordRemove = (index: number) => setSelectedWords(prev => prev.filter((_, i) => i !== index));
 
   const handleCheckAnswer = () => {
+    if (!currentExercise) return;
     const userAnswer = selectedWords.join(' ');
     const correct = userAnswer === currentExercise.answer;
-
     setIsCorrect(correct);
     setIsAnswerChecked(true);
-
     if (correct) {
-      setScore(score + 10);
+      setScore(prev => prev + 10);
       setShowConfetti(true);
       setTimeout(() => setShowConfetti(false), 2000);
     }
@@ -72,227 +67,202 @@ const QuizScreen: React.FC = () => {
 
   const handleNext = () => {
     if (currentIndex < exercises.length - 1) {
-      setCurrentIndex(currentIndex + 1);
+      setCurrentIndex(prev => prev + 1);
       setSelectedWords([]);
       setIsAnswerChecked(false);
       setIsCorrect(false);
     } else {
-      // Quiz completed
-      alert(`Quiz hoàn thành! Điểm: ${score}`);
+      // finished
+      // simple alert replacement
+      console.log('Quiz finished. Score:', score);
     }
   };
 
   if (!currentExercise) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-gray-600">Đang tải...</p>
-      </div>
+      <SafeAreaView style={styles.centered}>
+        <ActivityIndicator size="large" color="#16a34a" />
+        <Text style={styles.loadingText}>Đang tải...</Text>
+      </SafeAreaView>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center gap-3">
-          <button className="hover:bg-gray-100 p-2 rounded-full">←</button>
-          <h1 className="text-lg font-bold">Luyện tập</h1>
-        </div>
-      </header>
+    <SafeAreaView style={styles.screen}>
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backButton} onPress={() => {}}>
+          <Text style={styles.backText}>←</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Luyện tập</Text>
+      </View>
 
-      {/* Content */}
-      <main className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+      <ScrollView contentContainerStyle={styles.container}>
         {/* Progress */}
-        <div className="bg-white rounded-xl shadow-md p-4">
-          <div className="flex justify-between items-center mb-2">
-            <span className="font-semibold text-green-700">
-              Câu hỏi {currentIndex + 1}/{exercises.length}
-            </span>
-            <span className="font-bold text-green-700">
-              {Math.round(progress)}%
-            </span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div
-              className="bg-green-600 h-2 rounded-full transition-all"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        </div>
+        <View style={styles.card}>
+          <View style={styles.progressRow}>
+            <Text style={styles.progressLabel}>Câu hỏi {currentIndex + 1}/{exercises.length}</Text>
+            <Text style={styles.progressValue}>{Math.round(progress)}%</Text>
+          </View>
+          <View style={styles.progressBarBg}><View style={[styles.progressBarFill, { width: `${progress}%` }]} /></View>
+        </View>
 
         {!isAnswerChecked ? (
           <>
-            {/* Question Card */}
-            <div className="bg-white rounded-xl shadow-md p-6 space-y-6">
-              <h2 className="text-xl font-bold text-green-700 text-center">
-                {currentExercise.question}
-              </h2>
+            <View style={styles.cardLarge}>
+              <Text style={styles.questionTitle}>{currentExercise.question}</Text>
 
-              {/* Image and Japanese */}
-              <div className="bg-gray-50 rounded-lg p-4 flex items-center gap-4">
-                {currentExercise.imageUrl && (
-                  <img
-                    src={currentExercise.imageUrl}
-                    alt="Question"
-                    className="w-20 h-20 rounded-lg object-cover"
-                  />
-                )}
-                <div>
-                  {currentExercise.kana && (
-                    <div className="text-3xl font-bold text-green-700">
-                      {currentExercise.kana}
-                    </div>
-                  )}
-                  {currentExercise.romanji && (
-                    <div className="text-sm text-gray-500 italic">
-                      {currentExercise.romanji}
-                    </div>
-                  )}
-                </div>
-              </div>
+              <View style={styles.questionRow}>
+                {currentExercise.imageUrl ? (
+                  <Image source={{ uri: currentExercise.imageUrl }} style={styles.questionImage} />
+                ) : null}
+                <View>
+                  {currentExercise.kana ? <Text style={styles.kana}>{currentExercise.kana}</Text> : null}
+                  {currentExercise.romanji ? <Text style={styles.romanji}>{currentExercise.romanji}</Text> : null}
+                </View>
+              </View>
 
-              {/* Selected Words */}
-              <div>
-                <p className="text-sm font-medium mb-2">Câu trả lời của bạn:</p>
-                <div className="min-h-[60px] bg-gray-50 rounded-lg p-3 border-2 border-gray-200">
+              <View style={styles.section}>
+                <Text style={styles.sectionLabel}>Câu trả lời của bạn:</Text>
+                <View style={styles.answerBox}>
                   {selectedWords.length === 0 ? (
-                    <p className="text-gray-400 text-sm italic">
-                      Chọn từ bên dưới để tạo câu trả lời
-                    </p>
+                    <Text style={styles.hintText}>Chọn từ bên dưới để tạo câu trả lời</Text>
                   ) : (
-                    <div className="flex flex-wrap gap-2">
-                      {selectedWords.map((word, index) => (
-                        <button
-                          key={index}
-                          onClick={() => handleWordRemove(index)}
-                          className="px-4 py-2 bg-green-100 text-green-700 rounded-full border border-green-300 hover:bg-green-200 transition-colors"
-                        >
-                          {word} ✕
-                        </button>
+                    <View style={styles.selectedWrap}>
+                      {selectedWords.map((w, i) => (
+                        <TouchableOpacity key={i} onPress={() => handleWordRemove(i)} style={styles.wordPill}>
+                          <Text style={styles.wordText}>{w} ✕</Text>
+                        </TouchableOpacity>
                       ))}
-                    </div>
+                    </View>
                   )}
-                </div>
-              </div>
+                </View>
+              </View>
 
-              {/* Available Options */}
-              <div>
-                <p className="text-sm font-medium mb-2">Các từ có sẵn:</p>
-                <div className="flex flex-wrap gap-2">
-                  {currentExercise.options.map((option, index) => {
-                    const isSelected = selectedWords.includes(option);
+              <View style={styles.section}>
+                <Text style={styles.sectionLabel}>Các từ có sẵn:</Text>
+                <View style={styles.optionsWrap}>
+                  {currentExercise.options.map((opt, idx) => {
+                    const selected = selectedWords.includes(opt);
                     return (
-                      <button
-                        key={index}
-                        onClick={() => handleWordSelect(option)}
-                        disabled={isSelected}
-                        className={`px-4 py-2 rounded-full border transition-colors ${
-                          isSelected
-                            ? 'bg-gray-200 text-gray-400 border-gray-300 cursor-not-allowed'
-                            : 'bg-white text-green-700 border-green-600 hover:bg-green-50'
-                        }`}
-                      >
-                        {option}
-                      </button>
+                      <TouchableOpacity key={idx} disabled={selected} onPress={() => handleWordSelect(opt)} style={[styles.optionBtn, selected ? styles.optionDisabled : styles.optionActive]}>
+                        <Text style={selected ? styles.optionDisabledText : styles.optionText}>{opt}</Text>
+                      </TouchableOpacity>
                     );
                   })}
-                </div>
-              </div>
-            </div>
+                </View>
+              </View>
+            </View>
 
-            {/* Check Button */}
-            <div className="bg-white rounded-xl shadow-md p-4">
-              <button
-                onClick={handleCheckAnswer}
-                disabled={selectedWords.length === 0}
-                className="w-full py-4 bg-green-700 text-white rounded-lg font-bold text-lg hover:bg-green-800 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
-              >
-                KIỂM TRA
-              </button>
-            </div>
+            <View style={styles.card}>
+              <TouchableOpacity disabled={selectedWords.length === 0} style={[styles.checkButton, selectedWords.length === 0 ? styles.buttonDisabled : undefined]} onPress={handleCheckAnswer}>
+                <Text style={styles.checkButtonText}>KIỂM TRA</Text>
+              </TouchableOpacity>
+            </View>
           </>
         ) : (
           <>
-            {/* Result Card */}
-            <div className={`rounded-xl shadow-md p-8 text-center ${
-              isCorrect ? 'bg-green-50' : 'bg-red-50'
-            }`}>
-              <div className={`w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center ${
-                isCorrect ? 'bg-green-600' : 'bg-red-600'
-              }`}>
-                <span className="text-4xl text-white">
-                  {isCorrect ? '✓' : '✗'}
-                </span>
-              </div>
+            <View style={[styles.resultCard, isCorrect ? styles.resultCorrect : styles.resultWrong]}>
+              <View style={[styles.resultIcon, isCorrect ? styles.resultIconCorrect : styles.resultIconWrong]}>
+                <Text style={styles.resultIconText}>{isCorrect ? '✓' : '✗'}</Text>
+              </View>
+              <Text style={[styles.resultTitle, isCorrect ? styles.resultTitleCorrect : styles.resultTitleWrong]}>{isCorrect ? 'Đúng rồi!' : 'Sai rồi!'}</Text>
 
-              <h2 className={`text-3xl font-bold mb-4 ${
-                isCorrect ? 'text-green-700' : 'text-red-700'
-              }`}>
-                {isCorrect ? 'Đúng rồi!' : 'Sai rồi!'}
-              </h2>
+              <View style={styles.centerRow}>
+                <Text style={styles.smallText}>Đáp án đúng:</Text>
+                <Text style={styles.answerText}>{currentExercise.answer}</Text>
+              </View>
 
-              <div className="space-y-2 mb-6">
-                <div className="flex items-center justify-center gap-2">
-                  <span className="text-gray-600">Đáp án đúng:</span>
-                  <span className="text-green-700 font-bold text-lg">
-                    {currentExercise.answer}
-                  </span>
-                </div>
+              {!isCorrect && (
+                <View style={styles.centerRow}>
+                  <Text style={styles.smallText}>Đáp án của bạn:</Text>
+                  <Text style={styles.wrongAnswerText}>{selectedWords.join(' ')}</Text>
+                </View>
+              )}
+            </View>
 
-                {!isCorrect && (
-                  <div className="flex items-center justify-center gap-2">
-                    <span className="text-gray-600">Đáp án của bạn:</span>
-                    <span className="text-red-700 font-bold text-lg">
-                      {selectedWords.join(' ')}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Continue Button */}
-            <div className="bg-white rounded-xl shadow-md p-4">
-              <button
-                onClick={handleNext}
-                className={`w-full py-4 text-white rounded-lg font-bold text-lg transition-colors ${
-                  currentIndex < exercises.length - 1
-                    ? 'bg-green-700 hover:bg-green-800'
-                    : 'bg-blue-700 hover:bg-blue-800'
-                }`}
-              >
-                {currentIndex < exercises.length - 1 ? 'TIẾP TỤC' : 'HOÀN THÀNH'}
-              </button>
-            </div>
+            <View style={styles.card}>
+              <TouchableOpacity style={[styles.nextButton, currentIndex < exercises.length - 1 ? styles.nextPrimary : styles.nextFinish]} onPress={handleNext}>
+                <Text style={styles.nextButtonText}>{currentIndex < exercises.length - 1 ? 'TIẾP TỤC' : 'HOÀN THÀNH'}</Text>
+              </TouchableOpacity>
+            </View>
           </>
         )}
 
-        {/* Score Display */}
-        <div className="text-center text-gray-600">
-          Điểm hiện tại: <span className="font-bold text-green-600">{score}</span>
-        </div>
-      </main>
+        <View style={styles.scoreRow}>
+          <Text style={styles.smallText}>Điểm hiện tại: <Text style={styles.scoreText}>{score}</Text></Text>
+        </View>
 
-      {/* Confetti Animation */}
-      {showConfetti && (
-        <div className="fixed inset-0 pointer-events-none z-50">
-          {Array.from({ length: 50 }).map((_, i) => (
-            <div
-              key={i}
-              className="absolute animate-fall"
-              style={{
-                left: `${Math.random() * 100}%`,
-                top: '-10px',
-                animationDelay: `${Math.random() * 0.5}s`,
-                fontSize: `${Math.random() * 20 + 20}px`
-              }}
-            >
-              🎉
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+        {showConfetti && (
+          <View style={styles.confettiContainer} pointerEvents="none">
+            {Array.from({ length: 20 }).map((_, i) => (
+              <Text key={i} style={[styles.confetti, { left: Math.random() * 300, top: Math.random() * 200 } ]}>🎉</Text>
+            ))}
+          </View>
+        )}
+      </ScrollView>
+    </SafeAreaView>
   );
 };
+
+const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: '#f8fafc' },
+  header: { flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderColor: '#e5e7eb' },
+  backButton: { padding: 6, marginRight: 8 },
+  backText: { fontSize: 18 },
+  headerTitle: { fontSize: 18, fontWeight: '700' },
+  container: { padding: 16, paddingBottom: 40 },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText: { marginTop: 8, color: '#6b7280' },
+  card: { backgroundColor: '#fff', borderRadius: 12, padding: 12, marginBottom: 12 },
+  cardLarge: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12 },
+  progressRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  progressLabel: { fontWeight: '700', color: '#16a34a' },
+  progressValue: { fontWeight: '700', color: '#16a34a' },
+  progressBarBg: { height: 8, backgroundColor: '#e5e7eb', borderRadius: 8, overflow: 'hidden', marginTop: 8 },
+  progressBarFill: { height: 8, backgroundColor: '#16a34a' },
+  questionTitle: { fontSize: 18, fontWeight: '700', color: '#065f46', textAlign: 'center' },
+  questionRow: { flexDirection: 'row', alignItems: 'center', marginTop: 12 },
+  questionImage: { width: 80, height: 80, borderRadius: 8, marginRight: 12 },
+  kana: { fontSize: 24, fontWeight: '700', color: '#16a34a' },
+  romanji: { fontSize: 12, color: '#6b7280' },
+  section: { marginTop: 12 },
+  sectionLabel: { fontWeight: '600', marginBottom: 8 },
+  answerBox: { minHeight: 60, backgroundColor: '#f8fafc', borderRadius: 8, padding: 8, borderWidth: 1, borderColor: '#e5e7eb' },
+  hintText: { color: '#9ca3af' },
+  selectedWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  wordPill: { backgroundColor: '#dcfce7', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20, marginRight: 8, marginBottom: 8 },
+  wordText: { color: '#166534' },
+  optionsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  optionBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, borderWidth: 1, marginRight: 8, marginBottom: 8 },
+  optionActive: { backgroundColor: '#fff', borderColor: '#16a34a' },
+  optionDisabled: { backgroundColor: '#e5e7eb', borderColor: '#d1d5db' },
+  optionText: { color: '#16a34a' },
+  optionDisabledText: { color: '#6b7280' },
+  checkButton: { paddingVertical: 14, borderRadius: 10, alignItems: 'center' },
+  checkButtonText: { color: '#fff', fontWeight: '700' },
+  buttonDisabled: { backgroundColor: '#d1d5db' },
+  resultCard: { borderRadius: 12, padding: 20, alignItems: 'center', marginBottom: 12 },
+  resultCorrect: { backgroundColor: '#ecfdf5' },
+  resultWrong: { backgroundColor: '#fff1f2' },
+  resultIcon: { width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  resultIconCorrect: { backgroundColor: '#16a34a' },
+  resultIconWrong: { backgroundColor: '#ef4444' },
+  resultIconText: { color: '#fff', fontSize: 28, fontWeight: '700' },
+  resultTitle: { fontSize: 20, fontWeight: '700', marginBottom: 8 },
+  resultTitleCorrect: { color: '#065f46' },
+  resultTitleWrong: { color: '#b91c1c' },
+  centerRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+  smallText: { color: '#6b7280' },
+  answerText: { color: '#16a34a', fontWeight: '700', marginLeft: 6 },
+  wrongAnswerText: { color: '#b91c1c', fontWeight: '700', marginLeft: 6 },
+  nextButton: { paddingVertical: 14, borderRadius: 10, alignItems: 'center' },
+  nextPrimary: { backgroundColor: '#16a34a' },
+  nextFinish: { backgroundColor: '#2563eb' },
+  nextButtonText: { color: '#fff', fontWeight: '700' },
+  scoreRow: { alignItems: 'center', marginTop: 8 },
+  scoreText: { color: '#16a34a', fontWeight: '700' },
+  confettiContainer: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 },
+  confetti: { position: 'absolute', fontSize: 24 },
+});
 
 export default QuizScreen;

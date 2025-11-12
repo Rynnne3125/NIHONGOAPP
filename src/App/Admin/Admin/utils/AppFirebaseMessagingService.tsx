@@ -14,12 +14,7 @@ export default function AppFirebaseMessagingServiceScreen(props: any) {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
+
     </ScrollView>
   );
 }

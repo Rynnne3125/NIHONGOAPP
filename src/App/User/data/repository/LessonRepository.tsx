@@ -1,33 +1,23 @@
 
-import { 
-  getFirestore, 
+import firestore, { 
   collection, 
   doc, 
   getDoc, 
   getDocs, 
   setDoc, 
   updateDoc,
-  deleteDoc,
   query, 
   where,
   orderBy,
-  increment,
   serverTimestamp,
-  Timestamp
-} from 'firebase/firestore';
+  FieldValue,
+} from '@react-native-firebase/firestore';
 import CryptoJS from 'crypto-js';
 import { 
-  User, 
-  Course, 
-  CourseReview, 
-  Lesson, 
-  Exercise, 
-  Flashcard, 
-  UserProgress,
-  calculateRank 
-} from './types';
+  Lesson
+} from '../models';
 
-const db = getFirestore();
+const db = firestore();
 export class LessonRepository {
   async getLessonsByCourseId(courseId: string): Promise<Lesson[]> {
     try {
@@ -37,7 +27,7 @@ export class LessonRepository {
         orderBy('step')
       );
       const snapshot = await getDocs(q);
-      return snapshot.docs.map(doc => doc.data() as Lesson);
+      return snapshot.docs.map((doc: any) => doc.data() as Lesson);
     } catch (error) {
       console.error('Error getting lessons:', error);
       return [];

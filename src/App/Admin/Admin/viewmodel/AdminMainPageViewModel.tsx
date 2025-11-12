@@ -14,50 +14,7 @@ export default function AdminMainPageViewModelScreen(props: any) {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
+
     </ScrollView>
   );
 }

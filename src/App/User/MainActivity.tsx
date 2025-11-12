@@ -1,15 +1,13 @@
-// App.tsx - Main activity (tương đương MainActivity.kt)
 
 import React, { useEffect, useState, useRef } from 'react';
 import { Platform, BackHandler, ToastAndroid, Alert } from 'react-native';
 import messaging from '@react-native-firebase/messaging';
 import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
-import OneSignal from 'react-native-onesignal';
 
-import AppNavGraph from './AppNavGraph';
-import { SessionManager } from './SessionManager';
-import { NavigationRoutes } from './NavigationRoutes';
-import { UserRepository, CourseRepository, LessonRepository, ExerciseRepository } from './repositories';
+import AppNavGraph from './utils/AppNavGraph';
+import { SessionManager } from './utils/SessionManager';
+import { NavigationRoutes } from './utils/NavigationRoutes';
+import { UserRepository, CourseRepository, LessonRepository, ExerciseRepository } from './data/repository';
 
 const App: React.FC = () => {
   const [startDestination, setStartDestination] = useState<string>(NavigationRoutes.LOGIN);
@@ -25,7 +23,6 @@ const App: React.FC = () => {
   useEffect(() => {
     initializeApp();
     setupFirebaseMessaging();
-    setupOneSignal();
     requestNotificationPermissionIfNeeded();
 
     // Cleanup on unmount
@@ -45,13 +42,10 @@ const App: React.FC = () => {
       if (loggedInUser) {
         // Cập nhật trạng thái online của người dùng
         await userRepo.updateUserOnlineStatus(loggedInUser.id, true);
-
-        // Thiết lập tag user_email cho OneSignal
-        OneSignal.User.addTag(loggedInUser.email, 'true');
-        console.log('Set user_email tag in MainActivity:', loggedInUser.email);
+        console.log('User online status updated:', loggedInUser.email);
 
         // Set start destination
-        setStartDestination(`home/${loggedInUser.email}`);
+        setStartDestination(NavigationRoutes.HOME);
       } else {
         setStartDestination(NavigationRoutes.LOGIN);
       }
@@ -102,34 +96,23 @@ const App: React.FC = () => {
   };
 
   /**
-   * Setup OneSignal
+   * Setup OneSignal (removed - using Firebase Messaging instead)
    */
-  const setupOneSignal = () => {
-    try {
-      // Initialize OneSignal
-      OneSignal.initialize('47f96538-4b2b-4933-999a-a9012080d4e9');
-
-      // Request notification permission (iOS)
-      OneSignal.Notifications.requestPermission(true);
-
-      console.log('OneSignal initialized');
-    } catch (error) {
-      console.error('Error setting up OneSignal:', error);
-    }
-  };
 
   /**
    * Yêu cầu quyền notification nếu cần (Android 13+)
    */
   const requestNotificationPermissionIfNeeded = async () => {
-    if (Platform.OS === 'android' && Platform.Version >= 33) {
+    if (Platform.OS === 'android') {
       try {
-        const result = await check(PERMISSIONS.ANDROID.POST_NOTIFICATIONS);
+        // Check if permission is needed - use string for POST_NOTIFICATIONS
+        const POST_NOTIFICATIONS = 'android.permission.POST_NOTIFICATIONS' as any;
+        const permissionCheck = await check(POST_NOTIFICATIONS);
         
-        if (result !== RESULTS.GRANTED) {
-          const requestResult = await request(PERMISSIONS.ANDROID.POST_NOTIFICATIONS);
+        if (permissionCheck !== RESULTS.GRANTED) {
+          const permissionResult = await request(POST_NOTIFICATIONS);
           
-          if (requestResult === RESULTS.GRANTED) {
+          if (permissionResult === RESULTS.GRANTED) {
             console.log('Notification permission granted');
           } else {
             console.warn('Notification permission denied');

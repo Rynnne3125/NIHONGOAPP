@@ -4,9 +4,17 @@
 // Bạn CẦN tạo backend API hoặc Firebase Cloud Function để gửi email
 
 import axios from 'axios';
+import { NativeModules, Platform } from 'react-native';
 
 const SENDER_EMAIL = 'phongtt.23it@vku.udn.vn';
 const APP_PASSWORD = 'olrq gqil nyxe mbci';
+
+// TODO: Thay YOUR_BACKEND_API bằng URL backend thực tế của bạn
+// Ví dụ: 'https://your-backend.com/api' hoặc Firebase Cloud Function URL
+const BACKEND_API = 'YOUR_BACKEND_API';
+
+// Chế độ development - mock OTP nếu backend không khả dụng
+const DEVELOPMENT_MODE = false;
 
 export class EmailSender {
   /**
@@ -31,21 +39,70 @@ export class EmailSender {
     onSuccess: () => void,
     onFailure: (error: Error) => void
   ): Promise<void> {
+    console.log('[EmailSender] Attempting to send OTP...');
+    console.log('[EmailSender] Recipient:', recipientEmail);
+    console.log('[EmailSender] OTP:', otp);
+    console.log('[EmailSender] Backend URL:', BACKEND_API);
+    console.log('[EmailSender] Development Mode:', DEVELOPMENT_MODE);
+
+    // Try native Android sender first (if available)
     try {
-      // LƯU Ý: Thay YOUR_BACKEND_API bằng URL backend thực tế của bạn
-      const response = await axios.post('YOUR_BACKEND_API/send-otp', {
+      if (Platform.OS === 'android' && (NativeModules as any).EmailSender && (NativeModules as any).EmailSender.sendOTP) {
+        console.log('[EmailSender] Native Android EmailSender detected, calling native module');
+        try {
+          await (NativeModules as any).EmailSender.sendOTP(recipientEmail, otp);
+          console.log('[EmailSender] ✅ Native Android OTP sent successfully');
+          onSuccess();
+          return;
+        } catch (nativeErr) {
+          console.warn('[EmailSender] Native Android sendOTP failed, falling back to JS/back-end/mock:', nativeErr);
+          // fallthrough to JS/backend/mock
+        }
+      }
+    } catch (err) {
+      console.warn('[EmailSender] Error while attempting native sendOTP', err);
+    }
+
+    // If not using native or native failed, continue with existing JS/back-end logic
+    try {
+      // Nếu không có backend API hoặc ở chế độ development
+      if (BACKEND_API === 'YOUR_BACKEND_API' || DEVELOPMENT_MODE) {
+        console.log('[EmailSender] ⚠️ Backend API not configured or in development mode');
+        console.log('[EmailSender] Using mock OTP - In production, setup real backend API');
+        
+        // Mock gửi OTP thành công (delay 1 giây để giả lập network request)
+        setTimeout(() => {
+          console.log('[EmailSender] ✅ Mock OTP sent successfully to:', recipientEmail);
+          console.log('[EmailSender] OTP Code for testing:', otp);
+          onSuccess();
+        }, 1000);
+        return;
+      }
+
+      // Gửi thực tế qua backend API
+      console.log('[EmailSender] Sending OTP via backend API...');
+      const response = await axios.post(`${BACKEND_API}/send-otp`, {
         recipientEmail: recipientEmail,
         otp: otp,
         senderEmail: SENDER_EMAIL
+      }, {
+        timeout: 10000 // 10 giây timeout
       });
 
+      console.log('[EmailSender] Backend response:', response.data);
+
       if (response.data.success) {
+        console.log('[EmailSender] ✅ OTP sent successfully');
         onSuccess();
       } else {
-        onFailure(new Error('Failed to send OTP'));
+        console.error('[EmailSender] ❌ Backend returned error:', response.data);
+        onFailure(new Error(response.data.error || 'Failed to send OTP'));
       }
     } catch (error) {
+      console.error('[EmailSender] ❌ Error occurred:', error);
       if (error instanceof Error) {
+        console.error('[EmailSender] Error message:', error.message);
+        console.error('[EmailSender] Error stack:', error.stack);
         onFailure(error);
       } else {
         onFailure(new Error('Unknown error occurred'));

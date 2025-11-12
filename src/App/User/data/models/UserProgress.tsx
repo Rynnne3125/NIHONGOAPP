@@ -1,4 +1,4 @@
-import { Timestamp } from 'firebase/firestore';
+import firestore from '@react-native-firebase/firestore';
 export interface UserProgress {
   id?: string | null;
   userId: string;

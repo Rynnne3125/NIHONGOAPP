@@ -14,32 +14,7 @@ export default function AdminExerciseViewModelScreen(props: any) {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
+
     </ScrollView>
   );
 }

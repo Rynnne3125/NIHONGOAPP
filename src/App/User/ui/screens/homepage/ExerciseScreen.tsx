@@ -1,45 +1,73 @@
 import React, { useState, useEffect } from 'react';
+import { SafeAreaView, View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+import type { Exercise as ExerciseModel } from '../../../data/models';
+import { ExerciseRepository } from '../../../data/repository/ExerciseRepository';
 
-interface Exercise {
-  id: string;
-  title: string;
-  type: 'VIDEO' | 'PRACTICE';
-  videoUrl?: string;
-  explanation?: string;
-}
+type Props = any;
 
-const ExerciseScreen: React.FC = () => {
-  const [exercise, setExercise] = useState<Exercise | null>(null);
+const ExerciseScreen: React.FC<Props> = ({ route, navigation }) => {
+  const { lessonId, sublessonId } = route?.params || {};
+  const [exercises, setExercises] = useState<ExerciseModel[]>([]);
   const [expandedSections, setExpandedSections] = useState<Record<number, boolean>>({});
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const exerciseRepo = new ExerciseRepository();
 
   useEffect(() => {
-    // Mock data
-    setTimeout(() => {
-      setExercise({
-        id: '1',
-        title: 'Giới thiệu bảng chữ cái Hiragana',
-        type: 'VIDEO',
-        videoUrl: 'https://drive.google.com/uc?id=sample',
-        explanation: `I. Giới thiệu các loại chữ trong tiếng Nhật
-Trong tiếng Nhật có 3 loại chữ:
+    const loadExercises = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
 
-a. Kanji (chữ Hán): 日本
-b. Hiragana (chữ mềm): にほん
-c. Katakana (chữ cứng): 二ホン
+        if (!lessonId || !sublessonId) {
+          setError('Missing lesson or sub-lesson id');
+          setExercises([]);
+          return;
+        }
 
-II. Giới thiệu bảng chữ cái Hiragana
-- Bảng Hiragana gồm 46 chữ cái.
-- Hàng あ: あ(a), い(i), う(u), え(e), お(o).`
-      });
-      setIsLoading(false);
-    }, 1000);
-  }, []);
+        const list = await exerciseRepo.getExercisesBySubLessonId(sublessonId, lessonId);
+        setExercises(list);
+      } catch (err) {
+        console.error('Error loading exercises:', err);
+        setError('Không thể tải bài tập từ Firestore');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadExercises();
+  }, [lessonId, sublessonId]);
+
+  const toggleSection = (index: number) => setExpandedSections(prev => ({ ...prev, [index]: !prev[index] }));
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.centeredScreen}>
+        <ActivityIndicator size="large" color="#16a34a" />
+        <Text style={styles.muted}>Đang tải bài tập...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.centeredScreen}>
+        <View style={styles.errorCard}>
+          <Text style={styles.errorTitle}>⚠️ Lỗi</Text>
+          <Text style={styles.muted}>{error}</Text>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.primaryBtn}><Text style={styles.primaryBtnText}>Quay lại</Text></TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const exercise = exercises[0] || null;
 
   const explanationSections = exercise?.explanation
     ?.split('\n\n')
-    .filter(s => s.trim())
-    .map(section => {
+    .filter((s: string) => s.trim())
+    .map((section: string) => {
       const lines = section.split('\n');
       return {
         title: lines[0],
@@ -47,121 +75,78 @@ II. Giới thiệu bảng chữ cái Hiragana
       };
     }) || [];
 
-  const toggleSection = (index: number) => {
-    setExpandedSections(prev => ({ ...prev, [index]: !prev[index] }));
-  };
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-green-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Đang tải bài tập...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center gap-3">
-          <button className="hover:bg-gray-100 p-2 rounded-full">←</button>
-          <h1 className="text-lg font-bold">{exercise?.title}</h1>
-        </div>
-      </header>
+    <SafeAreaView style={styles.screen}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}><Text>←</Text></TouchableOpacity>
+        <Text style={styles.headerTitle}>{exercise?.title || 'Bài tập'}</Text>
+      </View>
 
-      {/* Content */}
-      <main className="max-w-4xl mx-auto px-4 py-6 space-y-6">
-        {/* Intro Card */}
-        <div className="bg-white rounded-xl shadow-md p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-              <span className="text-2xl">▶️</span>
-            </div>
-            <h2 className="text-xl font-bold">{exercise?.title}</h2>
-          </div>
-          <p className="text-gray-600">
-            Xem video và học các khái niệm cơ bản trong bài học này.
-            Sau đó làm bài tập để củng cố kiến thức.
-          </p>
-        </div>
-
-        {/* Video Player */}
-        {exercise?.videoUrl && (
-          <div className="bg-white rounded-xl shadow-md p-6">
-            <div className="aspect-video bg-gray-900 rounded-lg flex items-center justify-center mb-4">
-              <div className="text-center text-white">
-                <div className="text-6xl mb-4">▶️</div>
-                <p className="text-sm">Video Player</p>
-                <p className="text-xs opacity-75 mt-2">Nhấn vào video để phát/tạm dừng</p>
-              </div>
-            </div>
-          </div>
+      <ScrollView contentContainerStyle={styles.container}>
+        {exercise && (
+          <View style={styles.card}>
+            <View style={styles.row}><View style={styles.iconCircle}><Text>▶️</Text></View><Text style={styles.cardTitle}>{exercise.title}</Text></View>
+            <Text style={styles.muted}>Xem nội dung bài tập và làm các phần luyện tập tương ứng.</Text>
+          </View>
         )}
 
-        {/* Lesson Content */}
-        <div className="bg-white rounded-xl shadow-md p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-              <span className="text-2xl">📚</span>
-            </div>
-            <h2 className="text-xl font-bold">Nội dung bài học</h2>
-          </div>
+        {exercise?.videoUrl && (
+          <View style={styles.card}><View style={styles.videoPlaceholder}><Text style={{ color: '#fff' }}>Video Player</Text></View></View>
+        )}
 
-          <div className="space-y-3">
-            {explanationSections.map((section, index) => (
-              <div
-                key={index}
-                className="border rounded-lg overflow-hidden hover:shadow-md transition-shadow"
-              >
-                <button
-                  onClick={() => toggleSection(index)}
-                  className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center text-green-700 font-bold text-sm">
-                      {index + 1}
-                    </div>
-                    <span className="font-bold text-left">{section.title}</span>
-                  </div>
-                  <span className="text-green-600 text-xl">
-                    {expandedSections[index] ? '▲' : '▼'}
-                  </span>
-                </button>
+        <View style={styles.card}>
+          <View style={styles.row}><View style={styles.iconCircle}><Text>📚</Text></View><Text style={styles.cardTitle}>Nội dung bài học</Text></View>
 
+          <View>
+            {explanationSections.map((section: any, index: number) => (
+              <View key={index} style={styles.sectionBox}>
+                <TouchableOpacity onPress={() => toggleSection(index)} style={styles.sectionHeader}>
+                  <View style={styles.sectionLeft}><View style={styles.numCircle}><Text style={{ fontWeight: '700' }}>{index + 1}</Text></View><Text style={styles.sectionTitleText}>{section.title}</Text></View>
+                  <Text style={styles.expandIcon}>{expandedSections[index] ? '▲' : '▼'}</Text>
+                </TouchableOpacity>
                 {expandedSections[index] && (
-                  <div className="p-4 border-t bg-gray-50">
-                    <pre className="whitespace-pre-wrap text-sm text-gray-700 font-sans">
-                      {section.content}
-                    </pre>
-                  </div>
+                  <View style={styles.sectionContent}><Text style={styles.pre}>{section.content}</Text></View>
                 )}
-              </div>
+              </View>
             ))}
-          </div>
-        </div>
+          </View>
+        </View>
 
-        {/* Practice Button */}
-        <div className="bg-white rounded-xl shadow-md p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-              <span className="text-2xl">✏️</span>
-            </div>
-            <h2 className="text-xl font-bold">Luyện tập</h2>
-          </div>
-          <p className="text-gray-600 mb-6">
-            Làm bài tập để củng cố kiến thức vừa học.
-            Bạn cần hoàn thành bài tập để mở khóa bài học tiếp theo.
-          </p>
-          <button className="w-full py-4 bg-green-600 text-white rounded-xl font-bold text-lg hover:bg-green-700 transition-colors shadow-lg hover:shadow-xl">
-            ▶️ BẮT ĐẦU LUYỆN TẬP
-          </button>
-        </div>
-      </main>
-    </div>
+        <View style={styles.card}>
+          <View style={styles.row}><View style={styles.iconCircle}><Text>✏️</Text></View><Text style={styles.cardTitle}>Luyện tập</Text></View>
+          <Text style={styles.muted}>Làm bài tập để củng cố kiến thức vừa học.</Text>
+          <TouchableOpacity style={[styles.primaryBtn, { marginTop: 12 }]}><Text style={styles.primaryBtnText}>▶️ BẮT ĐẦU LUYỆN TẬP</Text></TouchableOpacity>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
+
+const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: '#f8fafc' },
+  centeredScreen: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  muted: { color: '#6b7280' },
+  header: { flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderColor: '#e5e7eb' },
+  backBtn: { padding: 8, marginRight: 8 },
+  headerTitle: { fontSize: 18, fontWeight: '700' },
+  container: { padding: 16, paddingBottom: 48 },
+  card: { backgroundColor: 'white', borderRadius: 12, padding: 12, marginBottom: 12 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8 },
+  iconCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#dcfce7', alignItems: 'center', justifyContent: 'center' },
+  cardTitle: { fontWeight: '700' },
+  videoPlaceholder: { height: 200, borderRadius: 12, backgroundColor: '#111827', alignItems: 'center', justifyContent: 'center' },
+  sectionBox: { marginBottom: 8, borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: '#e5e7eb' },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: 12, alignItems: 'center', backgroundColor: '#fff' },
+  sectionLeft: { flexDirection: 'row', alignItems: 'center' },
+  numCircle: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#dcfce7', alignItems: 'center', justifyContent: 'center', marginRight: 8 },
+  sectionTitleText: { fontWeight: '700' },
+  expandIcon: { color: '#16a34a' },
+  sectionContent: { padding: 12, backgroundColor: '#f8fafc' },
+  pre: { fontFamily: 'monospace' },
+  primaryBtn: { backgroundColor: '#16a34a', padding: 12, borderRadius: 10, alignItems: 'center' },
+  primaryBtnText: { color: 'white', fontWeight: '700' },
+  errorCard: { backgroundColor: 'white', padding: 16, borderRadius: 12, alignItems: 'center' },
+  errorTitle: { fontSize: 18, fontWeight: '700', color: '#dc2626', marginBottom: 8 }
+});
 
 export default ExerciseScreen;

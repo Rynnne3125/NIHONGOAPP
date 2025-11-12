@@ -1,20 +1,15 @@
-
-import { 
-  getFirestore, 
+import firestore, { 
   collection, 
   doc, 
   getDoc, 
   getDocs, 
   setDoc, 
   updateDoc,
-  deleteDoc,
   query, 
   where,
-  orderBy,
-  increment,
   serverTimestamp,
-  Timestamp
-} from 'firebase/firestore';
+  FieldValue,
+} from '@react-native-firebase/firestore';
 import CryptoJS from 'crypto-js';
 import { 
   User, 
@@ -25,9 +20,9 @@ import {
   Flashcard, 
   UserProgress,
   calculateRank 
-} from './types';
+} from '../models';
 
-const db = getFirestore();
+const db = firestore();
 export class UserRepository {
   private currentUser: User | null = null;
 
@@ -77,42 +72,78 @@ export class UserRepository {
 
   async loginUserByEmail(email: string, password: string): Promise<User | null> {
     try {
+      console.log('[UserRepository] loginUserByEmail called with email:', email);
+      
       const hashedPassword = this.hashPassword(password);
+      console.log('[UserRepository] Password hashed successfully');
+      
       const usersRef = collection(db, 'users');
+      console.log('[UserRepository] Users collection reference created');
+      
       const q = query(
         usersRef,
         where('email', '==', email),
         where('password', '==', hashedPassword)
       );
+      console.log('[UserRepository] Query created with email and password filters');
 
       const querySnapshot = await getDocs(q);
+      console.log('[UserRepository] Query executed, docs count:', querySnapshot.docs.length);
+      
       const userDoc = querySnapshot.docs[0];
 
       if (userDoc) {
         const user = userDoc.data() as User;
+        console.log('[UserRepository] User data retrieved:', {
+          id: user.id,
+          email: user.email,
+          username: user.username,
+          admin: user.admin,
+        });
         this.currentUser = user;
         return user;
       }
 
+      console.log('[UserRepository] No user found with provided email and password');
       return null;
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('[UserRepository] Login error:', error);
+      if (error instanceof Error) {
+        console.error('[UserRepository] Error message:', error.message);
+        console.error('[UserRepository] Error stack:', error.stack);
+      }
       return null;
     }
   }
 
   async getUserByEmail(email: string): Promise<User | null> {
     try {
+      console.log('[UserRepository] getUserByEmail called with email:', email);
+      
       const usersRef = collection(db, 'users');
       const q = query(usersRef, where('email', '==', email));
+      
+      console.log('[UserRepository] Executing query to find user by email');
       const querySnapshot = await getDocs(q);
+      console.log('[UserRepository] Query result - docs found:', querySnapshot.docs.length);
 
       if (!querySnapshot.empty) {
-        return querySnapshot.docs[0].data() as User;
+        const userData = querySnapshot.docs[0].data() as User;
+        console.log('[UserRepository] User found:', {
+          id: userData.id,
+          email: userData.email,
+          username: userData.username,
+        });
+        return userData;
       }
+      
+      console.log('[UserRepository] No user found with email:', email);
       return null;
     } catch (error) {
-      console.error('Error getting user by email:', error);
+      console.error('[UserRepository] Error getting user by email:', error);
+      if (error instanceof Error) {
+        console.error('[UserRepository] Error message:', error.message);
+      }
       return null;
     }
   }
@@ -155,7 +186,7 @@ export class UserRepository {
   async getAllUsers(): Promise<User[]> {
     try {
       const querySnapshot = await getDocs(collection(db, 'users'));
-      return querySnapshot.docs.map(doc => doc.data() as User);
+      return querySnapshot.docs.map((doc: any) => doc.data() as User);
     } catch (error) {
       console.error('Error getting all users:', error);
       return [];
@@ -396,7 +427,7 @@ async saveUserProgress(userId: string, userProgress: UserProgress): Promise<void
       const progressSnapshot = await getDocs(
         collection(db, 'user_progress', userId, 'courses')
       );
-      return progressSnapshot.docs.map(doc => doc.data() as UserProgress);
+      return progressSnapshot.docs.map((doc: any) => doc.data() as UserProgress);
     } catch (error) {
       console.error('Error getting all user progress:', error);
       return [];

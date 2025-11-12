@@ -1,77 +1,52 @@
 import React, { useState, useEffect } from 'react';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { View, Text, TextInput, StyleSheet, SafeAreaView, ActivityIndicator, TouchableOpacity, Image, FlatList } from 'react-native';
+import type { Course, UserProgress } from '../../../data/models';
+import { CourseRepository } from '../../../data/repository/CourseRepository';
+import { UserRepository } from '../../../data/repository/UserRepository';
 
-interface Course {
-  id: string;
-  title: string;
-  description: string;
-  imageRes: string;
-  vip: boolean;
-  rating: number;
-  likes: number;
-  reviews: number;
-  dislikes?: number;
+interface CoursesScreenProps extends NativeStackScreenProps<any> {
+  courseRepo: CourseRepository;
+  userRepo?: UserRepository;
 }
 
-interface UserProgress {
-  courseId: string;
-  progress: number;
-  completedLessons: string[];
-  totalLessons: number;
-}
-
-const CoursesScreen: React.FC = () => {
+const CoursesScreen: React.FC<CoursesScreenProps> = ({ route, navigation, courseRepo, userRepo }) => {
   const [selectedTab, setSelectedTab] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [courses, setCourses] = useState<Course[]>([]);
   const [userProgress, setUserProgress] = useState<UserProgress[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const tabs = ['Tất cả khóa học', 'Khóa học của tôi', 'Khóa học VIP'];
+  const userEmail = route.params?.userEmail || '';
 
   useEffect(() => {
-    // Mock data
-    const mockCourses: Course[] = [
-      {
-        id: '1',
-        title: 'Hiragana Cơ Bản',
-        description: 'Học bảng chữ cái Hiragana từ đầu',
-        imageRes: 'https://images.unsplash.com/photo-1528164344705-47542687000d?w=400',
-        vip: false,
-        rating: 4.5,
-        likes: 120,
-        reviews: 45,
-        dislikes: 5
-      },
-      {
-        id: '2',
-        title: 'Katakana Nâng Cao',
-        description: 'Thành thạo bảng chữ Katakana',
-        imageRes: 'https://images.unsplash.com/photo-1604935040313-3f552d155e90?w=400',
-        vip: true,
-        rating: 4.8,
-        likes: 200,
-        reviews: 80,
-        dislikes: 3
-      },
-      {
-        id: '3',
-        title: 'JLPT N5 Toàn Diện',
-        description: 'Chuẩn bị cho kỳ thi JLPT N5',
-        imageRes: 'https://images.unsplash.com/photo-1603988363607-e1e4a66962c6?w=400',
-        vip: false,
-        rating: 4.7,
-        likes: 180,
-        reviews: 65,
-        dislikes: 8
+    const loadData = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        const coursesData = await courseRepo.getAllCourses();
+        setCourses(coursesData || []);
+
+        if (userEmail && userRepo) {
+          const userData = await userRepo.getUserByEmail(userEmail);
+          if (userData) {
+            const progressData = await userRepo.getAllUserProgress(userData.id);
+            setUserProgress(progressData || []);
+          }
+        }
+      } catch (err) {
+        console.error('Error loading CoursesScreen data:', err);
+        setError('Failed to load courses from Firestore');
+      } finally {
+        setIsLoading(false);
       }
-    ];
+    };
 
-    const mockProgress: UserProgress[] = [
-      { courseId: '1', progress: 0.65, completedLessons: ['1', '2'], totalLessons: 10 }
-    ];
-
-    setCourses(mockCourses);
-    setUserProgress(mockProgress);
-  }, []);
+    loadData();
+  }, [userEmail, courseRepo, userRepo]);
 
   const filteredCourses = courses.filter(course => {
     const matchesSearch = course.title.toLowerCase().includes(searchQuery.toLowerCase());
@@ -85,139 +60,148 @@ const CoursesScreen: React.FC = () => {
     return matchesSearch;
   });
 
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.centered}>
+        <ActivityIndicator size="large" color="#16a34a" />
+        <Text style={styles.loadingText}>Đang tải khóa học từ Firestore...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.centered}>
+        <View style={styles.cardSmall}>
+          <Text style={styles.errorTitle}>⚠️ Lỗi</Text>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.primaryButton} onPress={() => navigation.goBack()}>
+            <Text style={styles.primaryButtonText}>Quay lại</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header with Search */}
-      <header className="bg-white shadow-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center gap-4">
-            <input
-              type="text"
-              placeholder="Tìm khóa học"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-            />
-            <button className="p-2 hover:bg-gray-100 rounded-full">
-              👥
-            </button>
-            <button className="p-2 hover:bg-gray-100 rounded-full">
-              👤
-            </button>
-          </div>
-        </div>
-      </header>
+    <SafeAreaView style={styles.screen}>
+      {/* Header with search */}
+      <View style={styles.header}>
+        <TextInput
+          placeholder="Tìm khóa học"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          style={styles.searchInput}
+        />
+      </View>
 
       {/* Tabs */}
-      <div className="bg-white border-b sticky top-[72px] z-40">
-        <div className="max-w-7xl mx-auto px-4 flex gap-8">
-          {tabs.map((tab, index) => (
-            <button
-              key={index}
-              onClick={() => setSelectedTab(index)}
-              className={`py-4 px-2 border-b-2 font-medium whitespace-nowrap ${
-                selectedTab === index
-                  ? 'border-green-600 text-green-600'
-                  : 'border-transparent text-gray-500'
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
-      </div>
+      <View style={styles.tabsContainer}>
+        {tabs.map((tab, index) => (
+          <TouchableOpacity key={index} onPress={() => setSelectedTab(index)} style={[styles.tabButton, selectedTab === index ? styles.tabActive : undefined]}>
+            <Text style={[styles.tabText, selectedTab === index ? styles.tabTextActive : undefined]}>{tab}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
-      {/* Content */}
-      <main className="max-w-7xl mx-auto px-4 py-6">
-        <h2 className="text-xl font-bold mb-4">{tabs[selectedTab]}</h2>
+      <View style={styles.container}>
+        <Text style={styles.sectionTitle}>{tabs[selectedTab]}</Text>
 
         {filteredCourses.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-gray-500 text-lg">
+          <View style={styles.emptyBox}>
+            <Text style={styles.emptyText}>
               {selectedTab === 1
                 ? 'Bạn chưa tham gia khóa học nào'
                 : selectedTab === 2
                 ? 'Không có khóa học VIP nào'
                 : 'Không tìm thấy khóa học nào'}
-            </p>
-          </div>
+            </Text>
+          </View>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredCourses.map(course => (
-              <CourseCard
-                key={course.id}
-                course={course}
-                progress={userProgress.find(p => p.courseId === course.id)}
-              />
-            ))}
-          </div>
+          <FlatList
+            data={filteredCourses}
+            keyExtractor={(item) => item.id}
+            numColumns={2}
+            columnWrapperStyle={{ justifyContent: 'space-between' }}
+            renderItem={({ item: course }) => (
+              <CourseCard course={course} progress={userProgress.find(p => p.courseId === course.id)} />
+            )}
+          />
         )}
-      </main>
-    </div>
+      </View>
+    </SafeAreaView>
   );
 };
 
-const CourseCard: React.FC<{
-  course: Course;
-  progress?: UserProgress;
-}> = ({ course, progress }) => {
+const CourseCard: React.FC<{ course: Course; progress?: UserProgress }> = ({ course, progress }) => {
   return (
-    <div className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-shadow cursor-pointer">
-      {/* Image */}
-      <div className="relative h-48">
-        <img
-          src={course.imageRes}
-          alt={course.title}
-          className="w-full h-full object-cover"
-        />
-        {course.vip && (
-          <div className="absolute top-2 right-2 bg-yellow-400 text-black px-3 py-1 rounded-full text-xs font-bold">
-            VIP
-          </div>
-        )}
-      </div>
+    <TouchableOpacity style={styles.courseCard} onPress={() => {}}>
+      <View style={styles.courseImageWrap}>
+        <Image source={{ uri: course.imageRes }} style={styles.courseImage} />
+        {course.vip && <View style={styles.vipBadge}><Text style={styles.vipBadgeText}>VIP</Text></View>}
+      </View>
+      <View style={styles.courseBody}>
+        <Text style={styles.courseTitle} numberOfLines={1}>{course.title}</Text>
+        <Text style={styles.smallText} numberOfLines={2}>{course.description}</Text>
 
-      {/* Content */}
-      <div className="p-4">
-        <h3 className="font-bold text-lg mb-2 line-clamp-1">{course.title}</h3>
-        <p className="text-gray-600 text-sm mb-3 line-clamp-2">{course.description}</p>
+        <View style={styles.statsRow}>
+          <Text style={styles.smallText}>⭐ {course.rating}</Text>
+          <Text style={[styles.smallText, { marginLeft: 8 }]}>👍 {course.likes}</Text>
+          <Text style={[styles.smallText, { marginLeft: 8 }]}>💬 {course.reviews}</Text>
+        </View>
 
-        {/* Stats */}
-        <div className="flex items-center gap-4 text-sm text-gray-500 mb-3">
-          <div className="flex items-center gap-1">
-            ⭐ {course.rating}
-          </div>
-          <div className="flex items-center gap-1">
-            👍 {course.likes}
-          </div>
-          <div className="flex items-center gap-1">
-            💬 {course.reviews}
-          </div>
-        </div>
-
-        {/* Progress */}
         {progress && (
-          <div className="mb-3">
-            <div className="flex justify-between text-xs text-gray-600 mb-1">
-              <span>{progress.completedLessons.length}/{progress.totalLessons} bài học</span>
-              <span>{Math.round(progress.progress * 100)}%</span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div
-                className="bg-green-600 h-2 rounded-full transition-all"
-                style={{ width: `${progress.progress * 100}%` }}
-              />
-            </div>
-          </div>
+          <View style={{ marginTop: 8 }}>
+            <View style={styles.progressMetaRow}>
+              <Text style={styles.smallText}>{progress.completedLessons.length}/{progress.totalLessons} bài học</Text>
+              <Text style={styles.smallText}>{Math.round(progress.progress * 100)}%</Text>
+            </View>
+            <View style={styles.progressBarBg}><View style={[styles.progressBarFill, { width: `${progress.progress * 100}%` }]} /></View>
+          </View>
         )}
 
-        {/* Action Button */}
-        <button className="w-full py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium">
-          {progress ? 'Tiếp tục học' : 'Xem chi tiết'}
-        </button>
-      </div>
-    </div>
+        <TouchableOpacity style={styles.actionButton} onPress={() => {}}>
+          <Text style={styles.actionButtonText}>{progress ? 'Tiếp tục học' : 'Xem chi tiết'}</Text>
+        </TouchableOpacity>
+      </View>
+    </TouchableOpacity>
   );
 };
+
+const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: '#f8fafc' },
+  header: { padding: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderColor: '#e5e7eb' },
+  searchInput: { backgroundColor: '#f3f4f6', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 },
+  tabsContainer: { flexDirection: 'row', backgroundColor: '#fff', borderBottomWidth: 1, borderColor: '#e5e7eb' },
+  tabButton: { paddingVertical: 12, paddingHorizontal: 14 },
+  tabText: { color: '#6b7280' },
+  tabActive: { borderBottomWidth: 2, borderColor: '#16a34a' },
+  tabTextActive: { color: '#16a34a', fontWeight: '700' },
+  container: { padding: 16, flex: 1 },
+  sectionTitle: { fontSize: 16, fontWeight: '700', marginBottom: 12 },
+  emptyBox: { padding: 24, alignItems: 'center' },
+  emptyText: { color: '#6b7280' },
+  courseCard: { width: '48%', backgroundColor: '#fff', borderRadius: 10, overflow: 'hidden', marginBottom: 12 },
+  courseImageWrap: { height: 120, backgroundColor: '#e5e7eb' },
+  courseImage: { width: '100%', height: '100%' },
+  vipBadge: { position: 'absolute', top: 8, right: 8, backgroundColor: '#fde68a', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
+  vipBadgeText: { color: '#92400e', fontWeight: '700' },
+  courseBody: { padding: 10 },
+  courseTitle: { fontWeight: '700', fontSize: 14 },
+  smallText: { color: '#6b7280', fontSize: 12 },
+  statsRow: { flexDirection: 'row', marginTop: 6 },
+  progressMetaRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
+  progressBarBg: { height: 6, backgroundColor: '#e5e7eb', borderRadius: 6, overflow: 'hidden', marginTop: 6 },
+  progressBarFill: { height: 6, backgroundColor: '#16a34a' },
+  actionButton: { marginTop: 8, backgroundColor: '#16a34a', paddingVertical: 8, borderRadius: 8, alignItems: 'center' },
+  actionButtonText: { color: '#fff', fontWeight: '700' },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText: { marginTop: 12, color: '#6b7280' },
+  cardSmall: { backgroundColor: '#fff', padding: 16, borderRadius: 12, width: '90%', alignItems: 'center' },
+  errorTitle: { fontSize: 18, fontWeight: '700', color: '#dc2626', marginBottom: 8 },
+  errorText: { color: '#374151', marginBottom: 8, textAlign: 'center' },
+  primaryButton: { marginTop: 12, backgroundColor: '#16a34a', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8 },
+  primaryButtonText: { color: '#fff', fontWeight: '700' },
+});
 
 export default CoursesScreen;

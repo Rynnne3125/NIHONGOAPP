@@ -1,33 +1,23 @@
 
-import { 
-  getFirestore, 
+import firestore, { 
   collection, 
   doc, 
   getDoc, 
   getDocs, 
   setDoc, 
   updateDoc,
-  deleteDoc,
   query, 
   where,
-  orderBy,
-  increment,
   serverTimestamp,
-  Timestamp
-} from 'firebase/firestore';
+  FieldValue,
+} from '@react-native-firebase/firestore';
 import CryptoJS from 'crypto-js';
 import { 
-  User, 
   Course, 
-  CourseReview, 
-  Lesson, 
-  Exercise, 
-  Flashcard, 
-  UserProgress,
-  calculateRank 
-} from './types';
+  CourseReview
+} from '../models';
 
-const db = getFirestore();
+const db = firestore();
 export class CourseRepository {
   async getAllCourses(): Promise<Course[]> {
     try {
@@ -96,7 +86,7 @@ export class CourseRepository {
       await setDoc(reviewRef, reviewWithId);
       await this.updateCourseRating(review.courseId);
       await updateDoc(doc(db, 'courses', review.courseId), {
-        reviews: increment(1)
+        reviews: firestore.FieldValue.increment(1)
       });
 
       return true;
@@ -159,7 +149,7 @@ export class CourseRepository {
         timestamp: serverTimestamp()
       };
       await setDoc(doc(collection(db, 'courseLikes')), likeData);
-      await updateDoc(doc(db, 'courses', courseId), { likes: increment(1) });
+      await updateDoc(doc(db, 'courses', courseId), { likes: firestore.FieldValue.increment(1) });
       return true;
     } catch (error) {
       console.error('Error liking course:', error);
@@ -177,8 +167,11 @@ export class CourseRepository {
       const snapshot = await getDocs(q);
 
       if (!snapshot.empty) {
-        await deleteDoc(doc(db, 'courseLikes', snapshot.docs[0].id));
-        await updateDoc(doc(db, 'courses', courseId), { likes: increment(-1) });
+        await updateDoc(snapshot.docs[0].ref, {});
+        // Delete the document instead of just updating
+        // For React Native Firebase, use ref from the doc
+        await snapshot.docs[0].ref.delete();
+        await updateDoc(doc(db, 'courses', courseId), { likes: firestore.FieldValue.increment(-1) });
         return true;
       }
       return false;
@@ -196,7 +189,7 @@ export class CourseRepository {
         timestamp: serverTimestamp()
       };
       await setDoc(doc(collection(db, 'courseDislikes')), dislikeData);
-      await updateDoc(doc(db, 'courses', courseId), { dislikes: increment(1) });
+      await updateDoc(doc(db, 'courses', courseId), { dislikes: firestore.FieldValue.increment(1) });
       return true;
     } catch (error) {
       console.error('Error disliking course:', error);
@@ -214,8 +207,8 @@ export class CourseRepository {
       const snapshot = await getDocs(q);
 
       if (!snapshot.empty) {
-        await deleteDoc(doc(db, 'courseDislikes', snapshot.docs[0].id));
-        await updateDoc(doc(db, 'courses', courseId), { dislikes: increment(-1) });
+        await snapshot.docs[0].ref.delete();
+        await updateDoc(doc(db, 'courses', courseId), { dislikes: firestore.FieldValue.increment(-1) });
       }
       return true;
     } catch (error) {

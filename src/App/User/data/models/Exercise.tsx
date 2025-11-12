@@ -1,4 +1,4 @@
-import { Timestamp } from 'firebase/firestore';
+import firestore from '@react-native-firebase/firestore';
 export enum ExerciseType {
   FLASHCARD = 'FLASHCARD',
   MEMORY_GAME = 'MEMORY_GAME',

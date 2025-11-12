@@ -22,24 +22,11 @@ export default function AdminLoginScreen(props: any) {
   </View>
   <Text>Email Admin</Text>
   <TextInput style={{ borderWidth: 1, borderColor: '#ccc', padding: 8, borderRadius: 6 }} />
-  </View>
   <Text>Mật khẩu</Text>
   <Button title="Action" onPress={() => { /* TODO */ }} />
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
+
   <Text>Đăng nhập</Text>
-  </View>
-  </View>
-  </View>
-  </View>
-  </View>
+
     </ScrollView>
   );
 }
